@@ -8,6 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -239,7 +241,7 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
   const selectedType = PIN_TYPES.find((t) => t.value === type);
 
   return (
-    <View style={[s.container, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView style={[s.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={s.handleBar} />
       <View style={s.header}>
         <View style={s.headerSpacer} />
@@ -380,6 +382,6 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

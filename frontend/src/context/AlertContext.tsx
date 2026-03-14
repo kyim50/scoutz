@@ -225,15 +225,11 @@ function ThemedToast({ message, type, onHide }: { message: string; type: ToastTy
   });
 
   return (
-    <Modal visible transparent animationType="none" statusBarTranslucent>
-      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-        <Animated.View style={[styles.wrapper, { opacity, transform: [{ translateY }] }]} pointerEvents="box-none">
-          <View style={styles.toast}>
-            <Text style={styles.message}>{message}</Text>
-          </View>
-        </Animated.View>
+    <Animated.View style={[styles.wrapper, { opacity, transform: [{ translateY }] }]} pointerEvents="none">
+      <View style={styles.toast}>
+        <Text style={styles.message}>{message}</Text>
       </View>
-    </Modal>
+    </Animated.View>
   );
 }
 

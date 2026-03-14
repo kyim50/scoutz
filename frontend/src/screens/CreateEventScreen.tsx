@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Switch,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -577,7 +579,7 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
   const selectedCategory = EVENT_CATEGORIES.find((c) => c.value === category);
 
   return (
-    <View style={[s.container, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView style={[s.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={s.handleBar} />
       <View style={s.header}>
         <View style={s.headerSpacer} />
@@ -900,6 +902,6 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

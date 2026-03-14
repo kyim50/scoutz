@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -192,7 +194,7 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
   };
 
   return (
-    <View style={s.container}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + spacing.xs }]}>
         <View style={s.headerSpacer} />
@@ -286,6 +288,6 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
           )}
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

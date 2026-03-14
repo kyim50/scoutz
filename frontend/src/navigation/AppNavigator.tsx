@@ -32,7 +32,7 @@ import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const TAB_BAR_BASE_HEIGHT = 68;
+const TAB_BAR_BASE_HEIGHT = 52;
 
 const AnimatedTabButton = ({ children, onPress, onLongPress, style }: any) => {
   const scale = useRef(new Animated.Value(1)).current;
