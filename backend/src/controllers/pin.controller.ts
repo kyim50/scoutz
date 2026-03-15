@@ -22,6 +22,21 @@ export const createPin = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getForYouPins = async (req: AuthRequest, res: Response) => {
+  try {
+    const { lat, lng, radius } = req.query;
+    const pins = await pinService.getForYouPins(
+      req.user?.id,
+      parseFloat(lat as string),
+      parseFloat(lng as string),
+      radius ? parseInt(radius as string) : 5000,
+    );
+    return sendSuccess(res, { pins });
+  } catch (error) {
+    return sendError(res, 'FETCH_FAILED', 'Failed to get recommendations', 500);
+  }
+};
+
 export const getNearbyPins = async (req: AuthRequest, res: Response) => {
   try {
     const { lat, lng, radius, type } = req.query;

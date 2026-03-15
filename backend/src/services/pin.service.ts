@@ -4,6 +4,7 @@ import aiService from './ai.service';
 import socketService from './socket.service';
 import reputationService from './reputation.service';
 import pushService from './push.service';
+import reviewService from './review.service';
 
 const PIN_BASE_TTL_DAYS = 30;
 const PIN_VERIFIED_THRESHOLD = 3;
@@ -487,6 +488,100 @@ export class PinService {
       }
     } catch (error) {
       logger.error('Error in revokeExpiredVerifications:', error);
+    }
+  }
+
+  /**
+   * Return top-5 nearby pins ranked by review quality + similarity to the
+   * user's saved spots (type/tag preference). Falls back gracefully when the
+   * user has no saved pins (pure review ranking).
+   */
+  async getForYouPins(userId: string | undefined, lat: number, lng: number, radius: number) {
+    try {
+      // 1. Fetch a broader candidate pool
+      const nearby = await this.searchNearby({ lat, lng, radius, limit: 50, userId });
+      if (!nearby || nearby.length === 0) return [];
+
+      // 2. Review aggregates for all candidates
+      const pinIds = (nearby as any[]).map((p: any) => p.id).filter(Boolean);
+      const aggregates = pinIds.length
+        ? await reviewService.getRatingAggregatesForPins(pinIds)
+        : {};
+
+      // 3. User preference signal from saved pins
+      let savedTypeCounts: Record<string, number> = {};
+      let savedTagCounts: Record<string, number> = {};
+      let totalSaved = 0;
+
+      if (userId) {
+        const { data: savedRows } = await supabaseAdmin
+          .from('saved_items')
+          .select('item_id')
+          .eq('user_id', userId)
+          .eq('item_type', 'pin');
+
+        if (savedRows && savedRows.length > 0) {
+          const savedPinIds = savedRows.map((s: any) => s.item_id);
+          const { data: savedPins } = await supabaseAdmin
+            .from('pins')
+            .select('type, tags')
+            .in('id', savedPinIds);
+
+          if (savedPins) {
+            totalSaved = savedPins.length;
+            for (const p of savedPins as any[]) {
+              savedTypeCounts[p.type] = (savedTypeCounts[p.type] || 0) + 1;
+              for (const tag of (p.tags || []) as string[]) {
+                savedTagCounts[tag] = (savedTagCounts[tag] || 0) + 1;
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Score each candidate
+      const MAX_REVIEW_COUNT = 50; // log scale ceiling
+      const scored = (nearby as any[]).map((pin: any) => {
+        const { average = 0, count = 0 } = aggregates[pin.id] || {};
+
+        // Review quality: rewards high average AND review volume (log-scaled)
+        const reviewScore =
+          count === 0
+            ? 0.05
+            : (average / 5) * (Math.log10(count + 1) / Math.log10(MAX_REVIEW_COUNT + 1));
+
+        // Type similarity: fraction of saved pins sharing this type
+        const typeScore =
+          totalSaved > 0 ? (savedTypeCounts[pin.type] || 0) / totalSaved : 0;
+
+        // Tag overlap: fraction of this pin's tags that appear in saved pins
+        const pinTags: string[] = pin.tags || [];
+        const tagOverlap =
+          totalSaved > 0 && pinTags.length > 0
+            ? pinTags.reduce((sum, t) => sum + (savedTagCounts[t] ? 1 : 0), 0) / pinTags.length
+            : 0;
+
+        const preferenceScore = typeScore * 0.7 + tagOverlap * 0.3;
+
+        const finalScore =
+          totalSaved > 0
+            ? reviewScore * 0.55 + preferenceScore * 0.45
+            : reviewScore;
+
+        return {
+          ...pin,
+          review_count: count,
+          average_rating: average,
+          _forYouScore: finalScore,
+        };
+      });
+
+      return scored
+        .sort((a: any, b: any) => b._forYouScore - a._forYouScore)
+        .slice(0, 5);
+    } catch (error) {
+      logger.error('Error in getForYouPins:', error);
+      return [];
     }
   }
 }

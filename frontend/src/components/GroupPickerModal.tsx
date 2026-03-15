@@ -18,10 +18,9 @@ interface GroupPickerModalProps {
   visible: boolean;
   onClose: () => void;
   onManage: () => void;
-  chipOpacity?: Animated.Value;
 }
 
-export default function GroupPickerModal({ visible, onClose, onManage, chipOpacity }: GroupPickerModalProps) {
+export default function GroupPickerModal({ visible, onClose, onManage }: GroupPickerModalProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { groups, activeGroup, setActiveGroup, loadingGroups, loadGroups } = useGroup();
@@ -35,7 +34,6 @@ export default function GroupPickerModal({ visible, onClose, onManage, chipOpaci
       loadGroups();
       slideAnim.setValue(400);
       fadeAnim.setValue(0);
-      if (chipOpacity) chipOpacity.setValue(0);
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 1, duration: 160, useNativeDriver: true }),
         Animated.spring(slideAnim, {
@@ -50,7 +48,6 @@ export default function GroupPickerModal({ visible, onClose, onManage, chipOpaci
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 0, duration: 140, useNativeDriver: true }),
         Animated.timing(slideAnim, { toValue: 400, duration: 140, useNativeDriver: true }),
-        ...(chipOpacity ? [Animated.timing(chipOpacity, { toValue: 1, duration: 140, useNativeDriver: true })] : []),
       ]).start(() => setModalVisible(false));
     }
   }, [visible]);

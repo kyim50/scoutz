@@ -249,6 +249,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const { showAlert, showToast } = useAlert();
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [pins, setPins] = useState<any[]>([]);
+  const [forYouPins, setForYouPins] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -268,7 +269,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const [averageRating, setAverageRating] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
-  const groupChipOpacity = useRef(new Animated.Value(1)).current;
+
   const [showReportModal, setShowReportModal] = useState(false);
   const [showReportsListModal, setShowReportsListModal] = useState(false);
   const [reportsListContext, setReportsListContext] = useState<
@@ -3417,10 +3418,23 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     }
   };
 
+  const loadForYouPins = async () => {
+    if (!userLocation) return;
+    try {
+      const radius = getAdaptiveRadius('pins');
+      const response = await pinAPI.getForYou(userLocation[1], userLocation[0], radius);
+      if (response.success) {
+        setForYouPins((response.data.pins || []).filter(groupFilter));
+      }
+    } catch {
+      // non-critical — fail silently
+    }
+  };
+
   const loadAllNearby = async () => {
     if (!userLocation) return;
     setLoadingNearby(true);
-    await Promise.all([loadNearbyPins(), loadNearbyEvents(), loadNearbyReports()]);
+    await Promise.all([loadNearbyPins(), loadNearbyEvents(), loadNearbyReports(), loadForYouPins()]);
     setLoadingNearby(false);
   };
 
@@ -4329,6 +4343,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         title,
         description,
         tags,
+        ...(activeGroup ? { groupId: activeGroup.id } : {}),
       };
       const response = await pinAPI.create(payload);
       const createdPin = response?.data?.pin || response?.pin;
@@ -4493,6 +4508,13 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     if (pin.pin_lat !== undefined && pin.pin_lng !== undefined) {
       lng = Number(pin.pin_lng);
       lat = Number(pin.pin_lat);
+    } else if (pin.location && typeof pin.location === 'string') {
+      const match = pin.location.match(/POINT\(([^ ]+) ([^ ]+)\)/);
+      if (match) { lng = Number(match[1]); lat = Number(match[2]); }
+      else return null;
+    } else if (pin.location && pin.location.type === 'Point' && Array.isArray(pin.location.coordinates)) {
+      lng = Number(pin.location.coordinates[0]);
+      lat = Number(pin.location.coordinates[1]);
     } else if (pin.location) {
       lng = Number(pin.location.lng || pin.location.longitude);
       lat = Number(pin.location.lat || pin.location.latitude);
@@ -5426,11 +5448,25 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           if (liveItems.length > 0) sections.push({ label: 'Live now', icon: 'radio-outline', iconColor: '#EF4444', items: liveItems });
           if (reportItems.length > 0) sections.push({ label: 'Community reports', icon: 'flag-outline', iconColor: colors.warning, items: reportItems });
           if (nonLiveEvents.length > 0) sections.push({ label: 'Upcoming events', icon: 'calendar-outline', iconColor: colors.accent, items: nonLiveEvents });
+          // Separate recommended top-5 from the rest
+          const forYouIds = new Set(forYouPins.map((p: any) => p.id));
+          const forYouFeedItems = pinItems.filter(i => forYouIds.has(i.raw?.id));
+          const remainingPinItems = pinItems.filter(i => !forYouIds.has(i.raw?.id));
+
+          if (forYouFeedItems.length > 0) {
+            sections.push({
+              label: 'For you',
+              icon: 'sparkles-outline' as any,
+              iconColor: colors.accent,
+              items: forYouFeedItems,
+              showAddCta: false,
+            });
+          }
           sections.push({
-            label: 'Nearby spots',
+            label: forYouFeedItems.length > 0 ? 'More nearby' : 'Nearby spots',
             icon: 'location-outline',
             iconColor: colors.text,
-            items: pinItems,
+            items: remainingPinItems,
             showAddCta: pinItems.length === 0,
           });
 
@@ -7257,43 +7293,40 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
 
       {/* Group context FAB — rendered last so it sits above all other overlays */}
       {!isNavigating && !selectedPin && !selectedPoi && !isSheetExpandedForContent && sheetContent === 'search' && (
-        <Animated.View style={{ opacity: groupChipOpacity }} pointerEvents={showGroupPicker ? 'none' : 'auto'}>
-          <TouchableOpacity
-            style={[
-              styles.groupFab,
-              {
-                bottom: sheetPeek + spacing.sm,
-                backgroundColor: activeGroup
-                  ? colors.accent
-                  : (isDarkMode ? 'rgba(30,30,30,0.90)' : 'rgba(255,255,255,0.94)'),
-                borderWidth: activeGroup ? 0 : StyleSheet.hairlineWidth,
-                borderColor: colors.border,
-                zIndex: 200,
-              },
-            ]}
-            onPress={() => setShowGroupPicker(true)}
-            activeOpacity={0.8}
+        <TouchableOpacity
+          style={[
+            styles.groupFab,
+            {
+              bottom: sheetPeek + spacing.sm,
+              backgroundColor: activeGroup
+                ? colors.accent
+                : (isDarkMode ? 'rgba(30,30,30,0.90)' : 'rgba(255,255,255,0.94)'),
+              borderWidth: activeGroup ? 0 : StyleSheet.hairlineWidth,
+              borderColor: colors.border,
+              zIndex: 200,
+            },
+          ]}
+          onPress={() => setShowGroupPicker(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={activeGroup ? 'people' : 'globe-outline'}
+            size={15}
+            color={activeGroup ? '#fff' : colors.textMuted}
+          />
+          <Text
+            style={[styles.groupFabLabel, { color: activeGroup ? '#fff' : colors.textMuted }]}
+            numberOfLines={1}
           >
-            <Ionicons
-              name={activeGroup ? 'people' : 'globe-outline'}
-              size={15}
-              color={activeGroup ? '#fff' : colors.textMuted}
-            />
-            <Text
-              style={[styles.groupFabLabel, { color: activeGroup ? '#fff' : colors.textMuted }]}
-              numberOfLines={1}
-            >
-              {activeGroup ? activeGroup.name : 'Public'}
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
+            {activeGroup ? activeGroup.name : 'Public'}
+          </Text>
+        </TouchableOpacity>
       )}
 
       <GroupPickerModal
         visible={showGroupPicker}
         onClose={() => setShowGroupPicker(false)}
         onManage={() => navigation.navigate('Groups')}
-        chipOpacity={groupChipOpacity}
       />
     </View>
   );

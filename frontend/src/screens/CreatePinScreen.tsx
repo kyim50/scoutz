@@ -210,9 +210,17 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
       });
 
       showToast('Pin created successfully!', 'success');
-      // Pass the new pin back so MapScreen can add it immediately (optimistic)
-      const newPin = result?.data?.pin;
-      navigation.navigate('Main', { screen: 'Map', params: newPin ? { newPin } : undefined });
+      // Pass the new pin back so MapScreen can add it immediately (optimistic).
+      // Enrich with pin_lat/pin_lng so getCoordinatesFromPin can render the marker
+      // (the raw DB row stores location as hex WKB which can't be parsed client-side).
+      const rawPin = result?.data?.pin;
+      const newPin = rawPin
+        ? { ...rawPin, pin_lat: Number(location.lat), pin_lng: Number(location.lng) }
+        : null;
+      navigation.navigate('Main', {
+        screen: 'Map',
+        params: newPin ? { newPin, targetPinId: newPin.id } : undefined,
+      });
     } catch (error: any) {
       // 409 means a similar pin already exists nearby — offer to verify it instead
       if (error?.response?.status === 409) {

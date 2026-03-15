@@ -486,7 +486,7 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
 
       navigation.navigate('Main', {
         screen: 'Map',
-        params: createdEvent ? { newEvent: createdEvent } : undefined,
+        params: createdEvent ? { newEvent: createdEvent, targetEventId: createdEvent.id } : undefined,
       });
     } catch (error: any) {
       showToast(error.message || 'Could not create event', 'error');

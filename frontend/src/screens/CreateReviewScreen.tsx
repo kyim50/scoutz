@@ -40,7 +40,7 @@ const RATING_PROMPTS = [
 ];
 
 export default function CreateReviewScreen({ navigation, route }: CreateReviewScreenProps) {
-  const { showAlert, showToast } = useAlert();
+  const { showToast } = useAlert();
   const { itemType, itemId, itemTitle } = route.params;
   const { colors } = useTheme();
   const [rating, setRating] = useState(0);
@@ -183,9 +183,8 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
         comment: comment.trim() || undefined,
         photos: photoUrls.length > 0 ? photoUrls : undefined,
       });
-      showAlert('Review submitted', 'Thanks for sharing your experience.', [
-        { text: 'Done', onPress: () => navigation.goBack() },
-      ]);
+      showToast('Review submitted!', 'success');
+      navigation.replace('ItemReviews', { itemType, itemId, itemTitle });
     } catch (error: any) {
       const msg = error?.response?.data?.error?.message || error?.message || 'Failed to submit review';
       showToast(msg, 'error');

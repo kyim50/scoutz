@@ -247,7 +247,7 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
       showToast('Report submitted.', 'success');
       navigation.navigate('Main', {
         screen: 'Map',
-        params: createdReport ? { newReport: createdReport } : undefined,
+        params: createdReport ? { newReport: createdReport, targetReportId: createdReport.id } : undefined,
       });
     } catch (error: any) {
       showToast(error.message || 'Failed to submit report', 'error');

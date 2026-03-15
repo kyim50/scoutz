@@ -287,6 +287,11 @@ export const pinAPI = {
     const response = await api.get('/pins/nearby', { params: { lat, lng, radius } });
     return response.data;
   },
+
+  getForYou: async (lat: number, lng: number, radius?: number) => {
+    const response = await api.get('/pins/for-you', { params: { lat, lng, radius } });
+    return response.data;
+  },
   
   getById: async (id: string) => {
     const response = await api.get(`/pins/${id}`);
