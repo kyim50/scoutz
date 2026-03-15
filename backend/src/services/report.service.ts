@@ -165,7 +165,8 @@ export class ReportService {
     lat: number,
     lng: number,
     radius = 500,
-    options: GetReportsOptions = {}
+    options: GetReportsOptions = {},
+    userId?: string,
   ) {
     try {
       const { data, error } = await supabaseAdmin.rpc('get_nearby_reports', {
@@ -174,6 +175,7 @@ export class ReportService {
         radius_meters: radius,
         report_type: options.type || null,
         limit_count: options.limit || 50,
+        p_user_id: userId || null,
       });
 
       if (error) {

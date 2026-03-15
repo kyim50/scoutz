@@ -1,12 +1,13 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
 import reportService from '../services/report.service';
 import reportClusterService from '../services/reportCluster.service';
 import { sendSuccess, sendError } from '../utils/response';
 import logger from '../utils/logger';
 
-export const createReport = async (req: Request, res: Response) => {
+export const createReport = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
       return sendError(res, 'UNAUTHORIZED', 'Authentication required', 401);
     }
@@ -39,7 +40,7 @@ export const createReport = async (req: Request, res: Response) => {
   }
 };
 
-export const getReportById = async (req: Request, res: Response) => {
+export const getReportById = async (req: AuthRequest, res: Response) => {
   try {
     const { reportId } = req.params;
     const { data, error } = await (await import('../config/supabase')).supabaseAdmin
@@ -56,7 +57,7 @@ export const getReportById = async (req: Request, res: Response) => {
   }
 };
 
-export const getReportsNearby = async (req: Request, res: Response) => {
+export const getReportsNearby = async (req: AuthRequest, res: Response) => {
   try {
     const lat = parseFloat(req.query.lat as string);
     const lng = parseFloat(req.query.lng as string);
@@ -68,7 +69,7 @@ export const getReportsNearby = async (req: Request, res: Response) => {
       return sendError(res, 'VALIDATION_ERROR', 'Valid lat and lng are required', 400);
     }
 
-    const reports = await reportService.getReportsNearby(lat, lng, radius, { type });
+    const reports = await reportService.getReportsNearby(lat, lng, radius, { type }, req.user?.id);
     return sendSuccess(res, { reports });
   } catch (error: any) {
     logger.error('Get reports error:', error);
@@ -76,7 +77,7 @@ export const getReportsNearby = async (req: Request, res: Response) => {
   }
 };
 
-export const getReportsByPin = async (req: Request, res: Response) => {
+export const getReportsByPin = async (req: AuthRequest, res: Response) => {
   try {
     const { pinId } = req.params;
     if (!pinId) {
@@ -91,9 +92,9 @@ export const getReportsByPin = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteReport = async (req: Request, res: Response) => {
+export const deleteReport = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
       return sendError(res, 'UNAUTHORIZED', 'Authentication required', 401);
     }
@@ -117,7 +118,7 @@ export const deleteReport = async (req: Request, res: Response) => {
   }
 };
 
-export const getReportsNearbyClustered = async (req: Request, res: Response) => {
+export const getReportsNearbyClustered = async (req: AuthRequest, res: Response) => {
   try {
     const lat = parseFloat(req.query.lat as string);
     const lng = parseFloat(req.query.lng as string);
@@ -129,7 +130,7 @@ export const getReportsNearbyClustered = async (req: Request, res: Response) => 
       return sendError(res, 'VALIDATION_ERROR', 'Valid lat and lng are required', 400);
     }
 
-    const reports = await reportService.getReportsNearby(lat, lng, radius, { type });
+    const reports = await reportService.getReportsNearby(lat, lng, radius, { type }, req.user?.id);
     const rawReports = (reports || []).map((r: any) => ({
       ...r,
       lat: r.lat ?? 0,

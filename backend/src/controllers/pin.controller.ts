@@ -30,7 +30,8 @@ export const getNearbyPins = async (req: AuthRequest, res: Response) => {
       lat: parseFloat(lat as string),
       lng: parseFloat(lng as string),
       radius: Math.max(radius ? parseInt(radius as string) : MIN_RADIUS, MIN_RADIUS),
-      type: type as string
+      type: type as string,
+      userId: req.user?.id,
     });
     const pinIds = (pins as any[]).map((p) => p.id).filter(Boolean);
     const aggregates = pinIds.length ? await reviewService.getRatingAggregatesForPins(pinIds) : {};

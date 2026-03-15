@@ -259,14 +259,15 @@ export class EventService {
     }
   }
 
-  async getUpcomingEvents(lat: number, lng: number, radius: number = 5000, hoursAhead: number = 168) {
+  async getUpcomingEvents(lat: number, lng: number, radius: number = 5000, hoursAhead: number = 168, userId?: string) {
     try {
       const { data, error } = await supabaseAdmin
         .rpc('get_upcoming_events', {
           lat,
           lng,
           radius_meters: radius,
-          hours_ahead: hoursAhead
+          hours_ahead: hoursAhead,
+          p_user_id: userId || null,
         });
 
       if (error) {

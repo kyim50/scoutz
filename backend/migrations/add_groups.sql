@@ -59,6 +59,24 @@ COMMENT ON COLUMN pins.group_id    IS 'NULL = public; set = visible only to memb
 COMMENT ON COLUMN events.group_id  IS 'NULL = public; set = visible only to members of this group';
 COMMENT ON COLUMN reports.group_id IS 'NULL = public; set = visible only to members of this group';
 
+-- ─── Helper: regenerate invite code (called by refreshInviteCode) ──
+
+CREATE OR REPLACE FUNCTION refresh_group_invite_code(p_group_id UUID, p_owner_id UUID)
+RETURNS VARCHAR AS $$
+DECLARE
+  new_code VARCHAR;
+BEGIN
+  new_code := substring(md5(random()::text || clock_timestamp()::text) FROM 1 FOR 8);
+  UPDATE groups
+    SET invite_code = new_code
+    WHERE id = p_group_id AND owner_id = p_owner_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Group not found or insufficient permissions';
+  END IF;
+  RETURN new_code;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ─── Helper function: get all group IDs a user belongs to ────
 -- Used internally by the RPC functions below to avoid repeating
 -- the membership subquery on every row.
@@ -300,7 +318,7 @@ BEGIN
     r.id,
     r.user_id,
     r.group_id,
-    r.type,
+    r.type::TEXT,
     r.pin_id,
     r.content,
     r.metadata,

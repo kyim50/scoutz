@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import * as eventController from '../controllers/event.controller';
 import * as chatController from '../controllers/chat.controller';
 import * as feedController from '../controllers/feed.controller';
@@ -8,7 +8,7 @@ const router = Router();
 
 // Event CRUD routes
 router.post('/', authenticate, eventController.createEvent);
-router.get('/upcoming', eventController.getUpcomingEvents);
+router.get('/upcoming', optionalAuthenticate, eventController.getUpcomingEvents);
 
 // Chat unread + read routes (defined before the generic :id route)
 router.get('/unread', authenticate, chatController.getEventUnreadCounts);

@@ -32,7 +32,8 @@ export const getUpcomingEvents = async (req: AuthRequest, res: Response) => {
       parseFloat(lat as string),
       parseFloat(lng as string),
       Math.max(radius ? parseInt(radius as string) : MIN_RADIUS, MIN_RADIUS),
-      hoursAhead ? parseInt(hoursAhead as string) : 168
+      hoursAhead ? parseInt(hoursAhead as string) : 168,
+      req.user?.id
     );
     
     return sendSuccess(res, { events });

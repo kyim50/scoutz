@@ -38,6 +38,7 @@ export interface SearchPinsData {
   type?: string;
   tags?: string[];
   limit?: number;
+  userId?: string;
 }
 
 export class PinService {
@@ -47,7 +48,8 @@ export class PinService {
   async createPin(data: CreatePinData) {
     try {
       // Spatial deduplication: reject if a pin of the same type exists within 20m
-      const { data: nearby } = await supabaseAdmin.rpc('search_nearby_pins', {
+      // No p_user_id — we check public pins only for dedup purposes
+      const { data: nearby } = await supabaseAdmin.rpc('get_nearby_pins', {
         lat: data.location.lat,
         lng: data.location.lng,
         radius_meters: 20,
@@ -140,15 +142,16 @@ export class PinService {
    */
   async searchNearby(params: SearchPinsData) {
     try {
-      const { lat, lng, radius = 1000, type, tags, limit = 20 } = params;
+      const { lat, lng, radius = 1000, type, tags, limit = 20, userId } = params;
 
       const { data, error } = await supabaseAdmin
-        .rpc('search_nearby_pins', {
+        .rpc('get_nearby_pins', {
           lat,
           lng,
           radius_meters: radius,
           pin_type: type || null,
-          limit_count: limit
+          limit_count: limit,
+          p_user_id: userId || null,
         });
 
       if (error) {

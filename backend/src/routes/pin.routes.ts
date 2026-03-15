@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import Joi from 'joi';
 import { createPin, getNearbyPins, getPinById, updatePin, deletePin, verifyPin } from '../controllers/pin.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { apiLimiter, pinCreateLimiter } from '../middleware/rateLimiter';
 import { validate } from '../middleware/validator';
 
@@ -26,7 +26,7 @@ const createPinSchema = Joi.object({
 });
 
 router.post('/', authenticate, pinCreateLimiter, validate(createPinSchema), createPin);
-router.get('/nearby', getNearbyPins);
+router.get('/nearby', optionalAuthenticate, getNearbyPins);
 router.get('/:id', getPinById);
 router.put('/:id', authenticate, updatePin);
 router.delete('/:id', authenticate, deletePin);

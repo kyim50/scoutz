@@ -19,6 +19,7 @@ import areaRoutes from './routes/area.routes';
 import reportRoutes from './routes/report.routes';
 import reportChatRoutes from './routes/reportChat.routes';
 import recommendationRoutes from './routes/recommendation.routes';
+import groupRoutes from './routes/group.routes';
 import logger from './utils/logger';
 import socketService from './services/socket.service';
 import schedulerService from './services/scheduler.service';
@@ -62,6 +63,7 @@ app.use('/api/areas', areaRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/reports', reportChatRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/groups', groupRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
