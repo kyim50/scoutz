@@ -14,6 +14,7 @@ import { spacing, typography, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAlert } from '../context/AlertContext';
+import { useGroup } from '../context/GroupContext';
 import { userAPI } from '../services/api';
 
 // ─── Level system ─────────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, logout } = useAuth();
   const { colors } = useTheme();
   const { showAlert } = useAlert();
+  const { groups, activeGroup } = useGroup();
   const insets = useSafeAreaInsets();
 
   const pinsCreated   = (user as any)?.pinsCreated    ?? 0;
@@ -491,6 +493,22 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
               <Text style={s.tileTitle}>My Reports</Text>
               <Text style={s.tileSub}>Reports you filed</Text>
             </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[s.tile, s.tileWide, { gap: spacing.sm }]} activeOpacity={0.75} onPress={() => navigation.navigate('Groups')}>
+            <Ionicons name="people-outline" size={20} color={colors.text} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.tileTitle}>Groups</Text>
+              <Text style={s.tileSub}>
+                {activeGroup ? `Active: ${activeGroup.name}` : groups.length > 0 ? `${groups.length} group${groups.length !== 1 ? 's' : ''}` : 'Create or join a group'}
+              </Text>
+            </View>
+            {activeGroup && (
+              <View style={{ backgroundColor: colors.accentTint, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Text style={{ ...typography.label, color: colors.accent, fontSize: 10 }}>ACTIVE</Text>
+              </View>
+            )}
+            <Ionicons name="chevron-forward" size={16} color={colors.mediumGray} />
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, s.tileFullWidth]} activeOpacity={0.75} onPress={() => navigation.navigate('Settings')}>

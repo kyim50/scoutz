@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { useAlert } from '../context/AlertContext';
+import { useGroup } from '../context/GroupContext';
 import { pinAPI, uploadAPI } from '../services/api';
 import ImagePicker from '../components/ImagePicker';
 
@@ -45,6 +46,7 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const { colors } = useTheme();
+  const { activeGroup } = useGroup();
   const insets = useSafeAreaInsets();
 
   const s = useMemo(
@@ -204,6 +206,7 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
         accessNotes: accessNotes || undefined,
         tags: [],
         photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
+        groupId: activeGroup?.id,
       });
 
       showToast('Pin created successfully!', 'success');

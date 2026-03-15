@@ -21,6 +21,7 @@ export interface CreateEventData {
   building?: string;
   room?: string;
   isRecurring?: boolean;
+  groupId?: string;
   recurrencePattern?: {
     frequency: 'daily' | 'weekly' | 'custom';
     daysOfWeek?: number[]; // 0-6, Sunday = 0
@@ -54,7 +55,8 @@ export class EventService {
           building: data.building,
           room: data.room,
           status: 'scheduled',
-          is_recurring: false
+          is_recurring: false,
+          ...(data.groupId ? { group_id: data.groupId } : {}),
         })
         .select()
         .single();

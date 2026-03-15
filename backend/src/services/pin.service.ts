@@ -29,6 +29,7 @@ export interface CreatePinData {
   floor?: string;
   accessNotes?: string;
   photoUrls?: string[];
+  groupId?: string;
 }
 
 export interface SearchPinsData {
@@ -83,6 +84,7 @@ export class PinService {
           photo_urls: data.photoUrls || [],
           embedding: null,
           expires_at: expiresAt.toISOString(),
+          ...(data.groupId ? { group_id: data.groupId } : {}),
         })
         .select()
         .single();

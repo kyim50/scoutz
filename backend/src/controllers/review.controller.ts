@@ -34,9 +34,6 @@ export const createReview = async (req: AuthRequest, res: Response) => {
     
     return sendSuccess(res, { review }, 201);
   } catch (error: any) {
-    if (error.message?.includes('already reviewed')) {
-      return sendError(res, 'DUPLICATE', error.message, 400);
-    }
     return sendError(res, 'CREATE_FAILED', error.message || 'Failed to create review', 500);
   }
 };

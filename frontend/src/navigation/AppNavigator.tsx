@@ -27,6 +27,8 @@ import ItemReviewsScreen from '../screens/ItemReviewsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import TermsOfServiceScreen from '../screens/TermsOfServiceScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
+import GroupsScreen from '../screens/GroupsScreen';
+import GroupDetailScreen from '../screens/GroupDetailScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -227,6 +229,16 @@ const AppNavigator = () => {
           <Stack.Screen
             name="PrivacyPolicy"
             component={PrivacyPolicyScreen}
+            options={{ cardStyle: { backgroundColor: colors.surface } }}
+          />
+          <Stack.Screen
+            name="Groups"
+            component={GroupsScreen}
+            options={{ cardStyle: { backgroundColor: colors.surface } }}
+          />
+          <Stack.Screen
+            name="GroupDetail"
+            component={GroupDetailScreen}
             options={{ cardStyle: { backgroundColor: colors.surface } }}
           />
         </>

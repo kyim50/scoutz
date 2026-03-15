@@ -11,6 +11,7 @@ export interface CreateReportData {
   imageUrl?: string;
   metadata?: Record<string, unknown>;
   isAnonymous?: boolean;
+  groupId?: string;
 }
 
 export interface GetReportsOptions {
@@ -62,6 +63,7 @@ export class ReportService {
           metadata: data.metadata || {},
           is_anonymous: data.isAnonymous || false,
           expires_at: expiresAt.toISOString(),
+          ...(data.groupId ? { group_id: data.groupId } : {}),
           last_activity_at: now.toISOString(),
         })
         .select()

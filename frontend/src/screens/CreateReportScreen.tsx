@@ -17,6 +17,7 @@ import { spacing, typography, borderRadius } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
+import { useGroup } from '../context/GroupContext';
 import { reportAPI, uploadAPI } from '../services/api';
 import ImagePicker from '../components/ImagePicker';
 
@@ -139,6 +140,7 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
   const { colors } = useTheme();
   const { isAnonymous } = useAuth();
   const { showToast } = useAlert();
+  const { activeGroup } = useGroup();
   const insets = useSafeAreaInsets();
   const location = route?.params?.location as { lat: number; lng: number } | undefined;
   const pinId = route?.params?.pinId as string | undefined;
@@ -222,6 +224,7 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
         imageUrl,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         isAnonymous,
+        groupId: activeGroup?.id,
       });
 
       const success = response?.success !== false;

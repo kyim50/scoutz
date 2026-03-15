@@ -12,7 +12,7 @@ export const createReport = async (req: AuthRequest, res: Response) => {
       return sendError(res, 'UNAUTHORIZED', 'Authentication required', 401);
     }
 
-    const { type, pinId, lat, lng, content, imageUrl, metadata, isAnonymous } = req.body;
+    const { type, pinId, lat, lng, content, imageUrl, metadata, isAnonymous, groupId } = req.body;
 
     if (!type || !['hazard', 'food_status', 'campus_update', 'safety', 'accessibility', 'general', 'other'].includes(type)) {
       return sendError(res, 'VALIDATION_ERROR', 'Valid type is required', 400);
@@ -31,6 +31,7 @@ export const createReport = async (req: AuthRequest, res: Response) => {
       imageUrl: imageUrl || undefined,
       metadata: metadata || undefined,
       isAnonymous: isAnonymous || false,
+      groupId: groupId || undefined,
     });
 
     return sendSuccess(res, report);

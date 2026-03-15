@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { useAlert } from '../context/AlertContext';
+import { useGroup } from '../context/GroupContext';
 import { eventAPI, uploadAPI } from '../services/api';
 import RecurrenceSelector from '../components/RecurrenceSelector';
 import ImagePicker from '../components/ImagePicker';
@@ -57,6 +58,7 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
   const [showRecurrenceModal, setShowRecurrenceModal] = useState(false);
   const [coverImage, setCoverImage] = useState<string[]>([]);
   const { colors } = useTheme();
+  const { activeGroup } = useGroup();
   const insets = useSafeAreaInsets();
 
   const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -467,6 +469,7 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
         locationName: locationName.trim() || undefined,
         isRecurring,
         recurrencePattern: isRecurring ? recurrencePattern : undefined,
+        groupId: activeGroup?.id,
       });
 
       const message = isRecurring

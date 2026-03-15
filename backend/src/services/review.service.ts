@@ -16,22 +16,18 @@ export class ReviewService {
     try {
       const { data: review, error } = await supabaseAdmin
         .from('reviews')
-        .insert({
+        .upsert({
           user_id: data.userId,
           item_type: data.itemType,
           item_id: data.itemId,
           rating: data.rating,
           comment: data.comment,
           photos: data.photos || [],
-        })
+        }, { onConflict: 'user_id,item_type,item_id' })
         .select()
         .single();
 
       if (error) {
-        // Check if user already reviewed this item
-        if (error.code === '23505') {
-          throw new Error('You have already reviewed this item');
-        }
         logger.error('Error creating review:', error);
         throw new Error('Failed to create review');
       }

@@ -187,7 +187,8 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
         { text: 'Done', onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
-      showToast(error.message || 'Failed to submit review', 'error');
+      const msg = error?.response?.data?.error?.message || error?.message || 'Failed to submit review';
+      showToast(msg, 'error');
     } finally {
       setLoading(false);
     }

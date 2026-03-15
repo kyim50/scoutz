@@ -17,6 +17,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { AreaProvider } from './src/context/AreaContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AlertProvider } from './src/context/AlertContext';
+import { GroupProvider } from './src/context/GroupContext';
 import SplashScreen from './src/screens/SplashScreen';
 
 // Keep native splash visible until we're ready to show our animated one
@@ -122,14 +123,16 @@ function AppContent() {
   return (
     <PaperProvider theme={paperTheme}>
       <AuthProvider>
-        <AlertProvider>
-          <AreaProvider>
-            <NavigationContainer theme={navTheme} linking={linking} ref={navigationRef}>
-              <AppNavigator />
-            </NavigationContainer>
-            {!splashDone && <SplashScreen onFinish={handleSplashFinish} />}
-          </AreaProvider>
-        </AlertProvider>
+        <GroupProvider>
+          <AlertProvider>
+            <AreaProvider>
+              <NavigationContainer theme={navTheme} linking={linking} ref={navigationRef}>
+                <AppNavigator />
+              </NavigationContainer>
+              {!splashDone && <SplashScreen onFinish={handleSplashFinish} />}
+            </AreaProvider>
+          </AlertProvider>
+        </GroupProvider>
       </AuthProvider>
       <StatusBar style={isDarkMode ? 'light' : 'dark'} />
     </PaperProvider>

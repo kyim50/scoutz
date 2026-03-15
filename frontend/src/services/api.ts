@@ -505,4 +505,52 @@ export const reviewAPI = {
   },
 };
 
+// Groups API
+export const groupAPI = {
+  createGroup: async (name: string) => {
+    const response = await api.post('/groups', { name });
+    return response.data;
+  },
+
+  getUserGroups: async () => {
+    const response = await api.get('/groups');
+    return response.data;
+  },
+
+  getGroup: async (groupId: string) => {
+    const response = await api.get(`/groups/${groupId}`);
+    return response.data;
+  },
+
+  renameGroup: async (groupId: string, name: string) => {
+    const response = await api.patch(`/groups/${groupId}`, { name });
+    return response.data;
+  },
+
+  deleteGroup: async (groupId: string) => {
+    const response = await api.delete(`/groups/${groupId}`);
+    return response.data;
+  },
+
+  addMember: async (groupId: string, username: string) => {
+    const response = await api.post(`/groups/${groupId}/members`, { username });
+    return response.data;
+  },
+
+  removeMember: async (groupId: string, userId: string) => {
+    const response = await api.delete(`/groups/${groupId}/members/${userId}`);
+    return response.data;
+  },
+
+  refreshInviteCode: async (groupId: string) => {
+    const response = await api.post(`/groups/${groupId}/invite/refresh`);
+    return response.data;
+  },
+
+  joinByInviteCode: async (inviteCode: string) => {
+    const response = await api.post(`/groups/join/${inviteCode}`);
+    return response.data;
+  },
+};
+
 export default api;

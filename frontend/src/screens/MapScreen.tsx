@@ -33,6 +33,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAlert } from '../context/AlertContext';
 import { useArea } from '../context/AreaContext';
+import { useGroup } from '../context/GroupContext';
+import GroupPickerModal from '../components/GroupPickerModal';
 
 const { width, height } = Dimensions.get('window');
 const SHEET_PEEK_BASE = 190;
@@ -265,6 +267,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const [verifyChoice, setVerifyChoice] = useState<boolean | null>(null);
   const [averageRating, setAverageRating] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
+  const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showReportsListModal, setShowReportsListModal] = useState(false);
   const [reportsListContext, setReportsListContext] = useState<
@@ -349,6 +352,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     stableLightPreset.current = isDarkMode ? 'night' : 'day';
   }
   const { currentArea, isInCampus, mode, setMode, setLocation } = useArea();
+  const { activeGroup } = useGroup();
 
   const sheetPeek = sheetContent === 'detail' ? SHEET_PEEK_DETAIL : SHEET_PEEK_BASE;
   modeRef.current = mode;
@@ -497,6 +501,24 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           justifyContent: 'center',
           alignItems: 'center',
           ...shadows.lg,
+        },
+        groupFab: {
+          position: 'absolute',
+          left: spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          paddingHorizontal: spacing.sm + 2,
+          paddingVertical: 9,
+          borderRadius: borderRadius.round,
+          maxWidth: 180,
+          ...shadows.md,
+        },
+        groupFabLabel: {
+          ...typography.caption,
+          fontWeight: '600',
+          fontSize: 12,
+          flexShrink: 1,
         },
         celebrationBubble: {
           position: 'absolute',
@@ -669,6 +691,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         areaStatusRow: {
           flexDirection: 'row',
           alignItems: 'center',
+          flexWrap: 'nowrap',
           marginTop: spacing.sm,
           marginHorizontal: spacing.md,
           gap: 6,
@@ -5057,7 +5080,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         <Text style={[styles.areaStatusText, { color: neighborhoodVibe.color }]}>{neighborhoodVibe.label}</Text>
         <View style={styles.areaStatusDot} />
         <Ionicons name="locate-outline" size={12} color={colors.textSecondary} />
-        <Text style={styles.areaStatusText}>{areaStatus.activityText}</Text>
+        <Text style={[styles.areaStatusText, { flexShrink: 0 }]} numberOfLines={1}>{areaStatus.activityText}</Text>
       </View>
 
       <ScrollView
@@ -7175,6 +7198,44 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           })()}
         </Pressable>
       </Modal>
+
+      {/* Group context FAB — rendered last so it sits above all other overlays */}
+      {!isNavigating && !selectedPin && !selectedPoi && !isSheetExpandedForContent && sheetContent === 'search' && (
+        <TouchableOpacity
+          style={[
+            styles.groupFab,
+            {
+              bottom: sheetPeek + spacing.sm,
+              backgroundColor: activeGroup
+                ? colors.accent
+                : (isDarkMode ? 'rgba(30,30,30,0.90)' : 'rgba(255,255,255,0.94)'),
+              borderWidth: activeGroup ? 0 : StyleSheet.hairlineWidth,
+              borderColor: colors.border,
+              zIndex: 200,
+            },
+          ]}
+          onPress={() => setShowGroupPicker(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={activeGroup ? 'people' : 'globe-outline'}
+            size={15}
+            color={activeGroup ? '#fff' : colors.textMuted}
+          />
+          <Text
+            style={[styles.groupFabLabel, { color: activeGroup ? '#fff' : colors.textMuted }]}
+            numberOfLines={1}
+          >
+            {activeGroup ? activeGroup.name : 'Public'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      <GroupPickerModal
+        visible={showGroupPicker}
+        onClose={() => setShowGroupPicker(false)}
+        onManage={() => navigation.navigate('Groups')}
+      />
     </View>
   );
 }
