@@ -18,31 +18,24 @@ interface GroupPickerModalProps {
   visible: boolean;
   onClose: () => void;
   onManage: () => void;
+  chipOpacity?: Animated.Value;
 }
 
-export default function GroupPickerModal({ visible, onClose, onManage }: GroupPickerModalProps) {
+export default function GroupPickerModal({ visible, onClose, onManage, chipOpacity }: GroupPickerModalProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { groups, activeGroup, setActiveGroup, loadingGroups, loadGroups } = useGroup();
   const slideAnim = useRef(new Animated.Value(400)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  // Keep modal mounted so the exit animation plays
   const [modalVisible, setModalVisible] = React.useState(false);
-
-  useEffect(() => {
-    console.log('[GroupPickerModal] groups from context:', JSON.stringify(groups));
-    console.log('[GroupPickerModal] loadingGroups:', loadingGroups);
-  }, [groups, loadingGroups]);
 
   useEffect(() => {
     if (visible) {
       setModalVisible(true);
-      console.log('[GroupPickerModal] opened — calling loadGroups()');
-      loadGroups().then(() => {
-        console.log('[GroupPickerModal] loadGroups() resolved');
-      });
+      loadGroups();
       slideAnim.setValue(400);
       fadeAnim.setValue(0);
+      if (chipOpacity) chipOpacity.setValue(0);
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 1, duration: 160, useNativeDriver: true }),
         Animated.spring(slideAnim, {
@@ -57,6 +50,7 @@ export default function GroupPickerModal({ visible, onClose, onManage }: GroupPi
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 0, duration: 140, useNativeDriver: true }),
         Animated.timing(slideAnim, { toValue: 400, duration: 140, useNativeDriver: true }),
+        ...(chipOpacity ? [Animated.timing(chipOpacity, { toValue: 1, duration: 140, useNativeDriver: true })] : []),
       ]).start(() => setModalVisible(false));
     }
   }, [visible]);
@@ -84,7 +78,6 @@ export default function GroupPickerModal({ visible, onClose, onManage }: GroupPi
           borderTopRightRadius: borderRadius.xl,
           paddingTop: spacing.sm,
           paddingBottom: Math.max(insets.bottom, spacing.lg),
-          maxHeight: '75%',
         },
         handle: {
           width: 36,
@@ -98,44 +91,97 @@ export default function GroupPickerModal({ visible, onClose, onManage }: GroupPi
           flexDirection: 'row',
           alignItems: 'center',
           paddingHorizontal: spacing.md,
-          marginBottom: spacing.sm,
+          paddingBottom: spacing.sm,
         },
-        title: { ...typography.h4, color: colors.text, flex: 1 },
+        title: {
+          ...typography.caption,
+          color: colors.textMuted,
+          textTransform: 'uppercase',
+          letterSpacing: 0.6,
+          flex: 1,
+        },
         manageBtn: {
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 4,
-          paddingVertical: spacing.xs,
-          paddingHorizontal: spacing.sm,
+          gap: 3,
+          paddingVertical: 4,
+          paddingHorizontal: spacing.xs,
         },
-        manageBtnText: { ...typography.caption, color: colors.accent },
+        manageBtnText: {
+          ...typography.caption,
+          color: colors.accent,
+          fontWeight: '500' as const,
+        },
         row: {
           flexDirection: 'row',
           alignItems: 'center',
           paddingHorizontal: spacing.md,
-          paddingVertical: 12,
+          paddingVertical: 11,
           gap: spacing.sm,
         },
         iconWrap: {
-          width: 38,
-          height: 38,
-          borderRadius: 19,
+          width: 34,
+          height: 34,
+          borderRadius: 10,
           justifyContent: 'center',
           alignItems: 'center',
         },
-        rowName: { ...typography.body, color: colors.text, flex: 1 },
-        rowMeta: { ...typography.caption, color: colors.textMuted },
-        checkmark: { width: 20, alignItems: 'center' },
+        rowBody: { flex: 1 },
+        rowName: {
+          ...typography.bodySmallMedium,
+          color: colors.text,
+        },
+        rowMeta: {
+          ...typography.caption,
+          color: colors.textMuted,
+          marginTop: 1,
+        },
+        checkmark: { width: 22, alignItems: 'center' },
         divider: {
           height: StyleSheet.hairlineWidth,
           backgroundColor: colors.border,
-          marginLeft: spacing.md + 38 + spacing.sm,
+          marginHorizontal: spacing.md,
         },
-        emptyText: {
-          ...typography.body,
+        emptyWrap: {
+          alignItems: 'center',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.lg,
+          gap: spacing.sm,
+        },
+        emptyIcon: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.accentTint,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: 2,
+        },
+        emptyTitle: {
+          ...typography.bodySmallMedium,
+          color: colors.text,
+          textAlign: 'center',
+        },
+        emptySub: {
+          ...typography.caption,
           color: colors.textMuted,
           textAlign: 'center',
-          padding: spacing.lg,
+          lineHeight: 18,
+        },
+        emptyBtn: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: spacing.xs,
+          backgroundColor: colors.accent,
+          paddingHorizontal: spacing.md,
+          paddingVertical: 9,
+          borderRadius: borderRadius.round,
+        },
+        emptyBtnText: {
+          ...typography.captionMedium,
+          color: '#000',
+          fontWeight: '600' as const,
         },
         loading: { padding: spacing.lg, alignItems: 'center' },
       }),
@@ -148,19 +194,22 @@ export default function GroupPickerModal({ visible, onClose, onManage }: GroupPi
     const selected = activeGroup?.id === item.id;
     return (
       <View key={item.id}>
+        <View style={s.divider} />
         <TouchableOpacity style={s.row} onPress={() => handleSelect(item)} activeOpacity={0.7}>
           <View style={[s.iconWrap, { backgroundColor: selected ? colors.accent : colors.accentTint }]}>
-            <Ionicons name="people" size={20} color={selected ? '#fff' : colors.accent} />
+            <Ionicons name="people" size={17} color={selected ? '#000' : colors.accent} />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={s.rowBody}>
             <Text style={s.rowName}>{item.name}</Text>
             <Text style={s.rowMeta}>{item.role === 'owner' ? 'Owner' : 'Member'}</Text>
           </View>
           <View style={s.checkmark}>
-            {selected && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
+            {selected
+              ? <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+              : <Ionicons name="chevron-forward" size={15} color={colors.border} />
+            }
           </View>
         </TouchableOpacity>
-        <View style={s.divider} />
       </View>
     );
   };
@@ -168,58 +217,68 @@ export default function GroupPickerModal({ visible, onClose, onManage }: GroupPi
   return (
     <Modal visible={modalVisible} transparent animationType="none" onRequestClose={onClose}>
       <View style={s.overlay}>
-        {/* Backdrop */}
         <Animated.View style={[s.backdrop, { opacity: fadeAnim }]}>
           <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
         </Animated.View>
 
-        {/* Sheet */}
         <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
           <View style={s.sheet}>
             <View style={s.handle} />
 
+            {/* Header */}
             <View style={s.titleRow}>
-              <Text style={s.title}>Viewing As</Text>
+              <Text style={s.title}>Viewing as</Text>
               <TouchableOpacity
                 style={s.manageBtn}
-                onPress={() => {
-                  onClose();
-                  onManage();
-                }}
+                onPress={() => { onClose(); onManage(); }}
               >
-                <Text style={s.manageBtnText}>Manage Groups</Text>
-                <Ionicons name="chevron-forward" size={12} color={colors.accent} />
+                <Text style={s.manageBtnText}>Manage</Text>
+                <Ionicons name="chevron-forward" size={11} color={colors.accent} />
               </TouchableOpacity>
             </View>
 
-            <View>
-              {/* Public option */}
-              <TouchableOpacity style={s.row} onPress={() => handleSelect(null)} activeOpacity={0.7}>
-                <View style={[s.iconWrap, { backgroundColor: isPublic ? colors.accent : colors.interactiveBg }]}>
-                  <Ionicons name="globe-outline" size={20} color={isPublic ? '#fff' : colors.mediumGray} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.rowName}>Public</Text>
-                  <Text style={s.rowMeta}>All visible content</Text>
-                </View>
-                <View style={s.checkmark}>
-                  {isPublic && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
-                </View>
-              </TouchableOpacity>
+            {/* Public row */}
+            <TouchableOpacity style={s.row} onPress={() => handleSelect(null)} activeOpacity={0.7}>
+              <View style={[s.iconWrap, { backgroundColor: isPublic ? colors.accent : colors.accentTint }]}>
+                <Ionicons name="globe-outline" size={17} color={isPublic ? '#000' : colors.accent} />
+              </View>
+              <View style={s.rowBody}>
+                <Text style={s.rowName}>Public</Text>
+                <Text style={s.rowMeta}>All visible content</Text>
+              </View>
+              <View style={s.checkmark}>
+                {isPublic
+                  ? <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+                  : <Ionicons name="chevron-forward" size={15} color={colors.border} />
+                }
+              </View>
+            </TouchableOpacity>
 
-              {loadingGroups && groups.length === 0 ? (
-                <View style={s.loading}>
-                  <ActivityIndicator color={colors.accent} />
+            {/* Groups */}
+            {loadingGroups && groups.length === 0 ? (
+              <View style={s.loading}>
+                <ActivityIndicator color={colors.accent} />
+              </View>
+            ) : groups.length === 0 ? (
+              <View style={s.emptyWrap}>
+                <View style={s.divider} />
+                <View style={[s.emptyIcon, { marginTop: spacing.sm }]}>
+                  <Ionicons name="people-outline" size={22} color={colors.accent} />
                 </View>
-              ) : groups.length === 0 ? (
-                <Text style={s.emptyText}>No groups yet — tap Manage Groups to create one</Text>
-              ) : (
-                <>
-                  <View style={s.divider} />
-                  {groups.map(renderGroupRow)}
-                </>
-              )}
-            </View>
+                <Text style={s.emptyTitle}>No groups yet</Text>
+                <Text style={s.emptySub}>Create a group to share pins and reports with friends or teammates.</Text>
+                <TouchableOpacity
+                  style={s.emptyBtn}
+                  activeOpacity={0.85}
+                  onPress={() => { onClose(); onManage(); }}
+                >
+                  <Ionicons name="add" size={14} color="#000" />
+                  <Text style={s.emptyBtnText}>Create a group</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              groups.map(renderGroupRow)
+            )}
           </View>
         </Animated.View>
       </View>

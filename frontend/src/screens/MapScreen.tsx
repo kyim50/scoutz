@@ -41,7 +41,7 @@ const SHEET_PEEK_BASE = 190;
 const SHEET_PEEK_DETAIL = 162;
 const SHEET_HALF = height * 0.78;
 const SHEET_FULL = height * 0.92;
-const SHEET_REPORT_MAX = Math.min(SHEET_HALF, height * 0.40);
+const SHEET_REPORT_MAX = Math.min(SHEET_HALF, height * 0.60);
 const SHEET_EVENT_MAX = SHEET_FULL;
 const SHEET_COLLAPSE_HINT_THRESHOLD = 56;
 const SHEET_INDEX = {
@@ -268,6 +268,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const [averageRating, setAverageRating] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
+  const groupChipOpacity = useRef(new Animated.Value(1)).current;
   const [showReportModal, setShowReportModal] = useState(false);
   const [showReportsListModal, setShowReportsListModal] = useState(false);
   const [reportsListContext, setReportsListContext] = useState<
@@ -354,12 +355,12 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const { currentArea, isInCampus, mode, setMode, setLocation } = useArea();
   const { activeGroup } = useGroup();
 
-  const sheetPeek = sheetContent === 'detail' ? SHEET_PEEK_DETAIL : SHEET_PEEK_BASE;
-  modeRef.current = mode;
   const isReportDetailSheet =
     sheetContent === 'detail' &&
     typeof selectedPin?.id === 'string' &&
     selectedPin.id.startsWith('report-');
+  const sheetPeek = sheetContent === 'detail' ? SHEET_PEEK_DETAIL : SHEET_PEEK_BASE;
+  modeRef.current = mode;
   const isEventDetailSheet = sheetContent === 'eventDetail';
   const isPoiDetailSheet =
     sheetContent === 'detail' && !!selectedPoi && !selectedPin;
@@ -4705,11 +4706,18 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     lng >= CAMPUS_BOUNDS.minLng && lng <= CAMPUS_BOUNDS.maxLng &&
     lat >= CAMPUS_BOUNDS.minLat && lat <= CAMPUS_BOUNDS.maxLat;
 
+  // Group filtering — public view shows items with no group_id, group view shows only that group's items
+  const groupFilter = useCallback((item: any) => {
+    if (activeGroup) return item.group_id === activeGroup.id;
+    return !item.group_id;
+  }, [activeGroup]);
+
   // Map filtering: sheet filter chips control what appears on the map
   const mapFilteredPins = useMemo(() => {
     let result = feedFilter === 'all' ? pins
       : feedFilter === 'events' || feedFilter === 'reports' ? []
       : pins.filter((p: any) => p?.type === feedFilter);
+    result = result.filter(groupFilter);
     if (mode === 'campus') {
       result = result.filter((p: any) => {
         const c = getCoordinatesFromPin(p);
@@ -4717,10 +4725,11 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       });
     }
     return result;
-  }, [pins, feedFilter, mode]);
+  }, [pins, feedFilter, mode, groupFilter]);
 
   const mapFilteredEvents = useMemo(() => {
     let result = (feedFilter === 'all' || feedFilter === 'events') ? events : [];
+    result = result.filter(groupFilter);
     if (mode === 'campus') {
       result = result.filter((ev: any) => {
         const c = getCoordinatesFromEvent(ev);
@@ -4728,12 +4737,13 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       });
     }
     return result;
-  }, [events, feedFilter, mode]);
+  }, [events, feedFilter, mode, groupFilter]);
 
   // Only show reports that are not attached to a pin (standalone reports get a marker; pin reports stay in the pin's detail)
   const mapFilteredReports = useMemo(() => {
     if (feedFilter !== 'all' && feedFilter !== 'reports') return [];
     let result = reports.filter((r: any) => !r.pin_id);
+    result = result.filter(groupFilter);
     if (mode === 'campus') {
       result = result.filter((r: any) => {
         const lng = r.lng != null ? Number(r.lng) : null;
@@ -4742,7 +4752,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       });
     }
     return result;
-  }, [reports, feedFilter, mode]);
+  }, [reports, feedFilter, mode, groupFilter]);
 
   // Cell size shrinks as zoom grows — at zoom 12 ~0.01 deg, zoom 10 ~0.04 deg
   const clusterCellSize = Math.max(0.005, 0.16 / Math.pow(2, zoomLevel - 10));
@@ -4769,15 +4779,15 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const nearbyFeedItems = useMemo(() => {
     const items: { id: string; kind: 'event' | 'report' | 'pin'; title: string; description: string; typeLabel: string; time: string; icon: string; isLive: boolean; distance?: number; locationLabel?: string; raw: any }[] = [];
 
-    const filteredEvents = mode === 'campus'
+    const filteredEvents = (mode === 'campus'
       ? events.filter((e: any) => { const c = getCoordinatesFromEvent(e); return c ? inCampusBounds(c[0], c[1]) : false; })
-      : events;
-    const filteredReports = mode === 'campus'
+      : events).filter(groupFilter);
+    const filteredReports = (mode === 'campus'
       ? reports.filter((r: any) => { const lng = Number(r.lng); const lat = Number(r.lat); return inCampusBounds(lng, lat); })
-      : reports;
-    const filteredPins = mode === 'campus'
+      : reports).filter(groupFilter);
+    const filteredPins = (mode === 'campus'
       ? pins.filter((p: any) => { const c = getCoordinatesFromPin(p); return c ? inCampusBounds(c[0], c[1]) : false; })
-      : pins;
+      : pins).filter(groupFilter);
 
     filteredEvents.forEach((e: any) => {
       const icon = EVENT_ICONS[e.category] || EVENT_ICONS.other;
@@ -4860,7 +4870,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     });
 
     return items;
-  }, [events, reports, userLocation, pins, mode]);
+  }, [events, reports, userLocation, pins, mode, groupFilter]);
 
   // ── Neighborhood vibe ────────────────────────────────────
   const neighborhoodVibe = useMemo(() => {
@@ -5131,8 +5141,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         </View>
       ) : null}
 
-      {/* Trending / Hot right now — empty state */}
-      {!isSearchFocused && isSheetExpandedForContent && trendingItems.length === 0 && (
+      {/* Trending / Hot right now — empty state — only show if there's real content (pins exist) but nothing is trending */}
+      {!isSearchFocused && isSheetExpandedForContent && trendingItems.length === 0 && pins.length >= 3 && (
         <View style={styles.trendingEmptySection}>
           <View style={styles.trendingEmptyCard}>
             <View style={styles.trendingEmptyIconWrap}>
@@ -5398,30 +5408,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
                 <Text style={{ ...typography.caption, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: spacing.lg }}>
                   Help others discover this area — add a bathroom, food spot, study space, or anything useful.
                 </Text>
-                <TouchableOpacity
-                  style={{
-                    marginTop: spacing.xs,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 6,
-                    backgroundColor: colors.accent,
-                    paddingHorizontal: spacing.lg,
-                    paddingVertical: 10,
-                    borderRadius: borderRadius.round,
-                  }}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    navigation.navigate('SelectType', {
-                      prefillLocation: userLocation
-                        ? { lat: userLocation[1], lng: userLocation[0] }
-                        : undefined,
-                    });
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="add" size={16} color="#fff" />
-                  <Text style={{ ...typography.bodySemibold, color: '#fff', fontSize: 14 }}>Add a pin</Text>
-                </TouchableOpacity>
               </View>
             );
           }
@@ -5438,6 +5424,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
 
           const sections: { label: string; icon: string; iconColor: string; items: typeof filteredFeedItems; showAddCta?: boolean }[] = [];
           if (liveItems.length > 0) sections.push({ label: 'Live now', icon: 'radio-outline', iconColor: '#EF4444', items: liveItems });
+          if (reportItems.length > 0) sections.push({ label: 'Community reports', icon: 'flag-outline', iconColor: colors.warning, items: reportItems });
+          if (nonLiveEvents.length > 0) sections.push({ label: 'Upcoming events', icon: 'calendar-outline', iconColor: colors.accent, items: nonLiveEvents });
           sections.push({
             label: 'Nearby spots',
             icon: 'location-outline',
@@ -5445,8 +5433,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
             items: pinItems,
             showAddCta: pinItems.length === 0,
           });
-          if (nonLiveEvents.length > 0) sections.push({ label: 'Upcoming events', icon: 'calendar-outline', iconColor: colors.accent, items: nonLiveEvents });
-          if (reportItems.length > 0) sections.push({ label: 'Community reports', icon: 'flag-outline', iconColor: colors.warning, items: reportItems });
 
           return sections.map((section) => (
             <View key={section.label} style={styles.feedSectionGroup}>
@@ -6070,10 +6056,14 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         {/* ── HEADER ── */}
         <View style={styles.detailHeader2}>
           {/* Left: icon badge */}
-          {!isReportPin && !isPoiDetail && (
-            <View style={[styles.detailTypeIconBadge2, { backgroundColor: pinTypeColor + '16' }]}>
-              <View style={[styles.detailTypeIconRing, { borderColor: pinTypeColor + '38' }]} />
-              <Ionicons name={iconName as any} size={26} color={pinTypeColor} />
+          {!isPoiDetail && (
+            <View style={[styles.detailTypeIconBadge2, { backgroundColor: (isReportPin ? colors.warning : pinTypeColor) + '16' }]}>
+              {!isReportPin && <View style={[styles.detailTypeIconRing, { borderColor: pinTypeColor + '38' }]} />}
+              <Ionicons
+                name={(isReportPin ? (REPORT_ICONS[reportData?.type] || REPORT_ICON_DEFAULT) : iconName) as any}
+                size={26}
+                color={isReportPin ? colors.warning : pinTypeColor}
+              />
             </View>
           )}
 
@@ -6081,8 +6071,17 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           <View style={styles.detailHeaderBody}>
             <Text style={styles.detailTitle2} numberOfLines={2}>{detailItem.title}</Text>
 
-            {/* Meta row: rating · type · distance */}
-            {!isReportPin && !isPoiDetail && (
+            {isReportPin ? (
+              <View style={styles.detailMetaRow}>
+                <View style={[styles.detailTypePill, { backgroundColor: colors.warning + '18' }]}>
+                  <Text style={[styles.detailTypePillText, { color: colors.warning }]}>{reportTypeLabel}</Text>
+                </View>
+                <Text style={styles.detailMetaDot}>·</Text>
+                <Text style={styles.detailMetaMuted}>
+                  {reportData?.created_at ? formatReportTime(reportData.created_at) : 'Just now'}
+                </Text>
+              </View>
+            ) : !isPoiDetail ? (
               <View style={styles.detailMetaRow}>
                 {reviewCount > 0 ? (
                   <View style={styles.detailMetaChip}>
@@ -6111,7 +6110,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
                   </>
                 )}
               </View>
-            )}
+            ) : null}
           </View>
 
           {/* Close button */}
@@ -6128,12 +6127,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
             <Ionicons name="close" size={17} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
-
-        {isReportPin && detailItem.description ? (
-          <View style={styles.reportLeadDescription}>
-            <Text style={styles.reportLeadDescriptionText}>{detailItem.description}</Text>
-          </View>
-        ) : null}
 
         {/* ── ACTION BUTTONS ── */}
         <View style={styles.detailActionsRow2}>
@@ -6223,25 +6216,88 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           </View>
         )}
 
-        {/* Report detail card */}
+        {/* Report detail body */}
         {isReportPin && (
-          <View style={styles.reportDetailCard}>
-            <Text style={styles.reportDetailLabel}>Report details</Text>
-            <View style={styles.reportDetailRow}>
-              <Ionicons name="flag-outline" size={13} color={colors.textSecondary} />
-              <Text style={styles.reportDetailValue}>{reportTypeLabel}</Text>
+          <>
+            {/* Photo — full width, shown first if present */}
+            {reportData?.image_url ? (
+              <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm }}>
+                <Image
+                  source={{ uri: reportData.image_url }}
+                  style={{ width: '100%', height: 200, borderRadius: borderRadius.md, backgroundColor: colors.surfaceGray }}
+                  resizeMode="cover"
+                />
+              </View>
+            ) : null}
+
+            {/* Description */}
+            <View style={styles.detailFlatSection}>
+              <Text style={styles.detailFlatLabel}>What's happening</Text>
+              {detailItem.description ? (
+                <Text style={styles.detailFlatBody}>{detailItem.description}</Text>
+              ) : (
+                <Text style={styles.detailFlatEmpty}>No details added.</Text>
+              )}
             </View>
-            <View style={styles.reportDetailRow}>
-              <Ionicons name="time-outline" size={13} color={colors.textSecondary} />
-              <Text style={styles.reportDetailValue}>
-                {reportData?.created_at ? formatReportTime(reportData.created_at) : 'Recently posted'}
-              </Text>
+
+            {/* Divider */}
+            <View style={styles.detailExpandDivider} />
+
+            {/* Reporter row — styled like "Posted by" */}
+            <View style={styles.detailCreatorRow2}>
+              <View style={[styles.detailCreatorAvatar2, { backgroundColor: reportData?.is_anonymous ? colors.surfaceGray : creatorAvatarColor }]}>
+                {reportData?.is_anonymous || !creatorInitial ? (
+                  <Ionicons name="person-outline" size={16} color={colors.textMuted} />
+                ) : (
+                  <Text style={styles.detailCreatorAvatarText2}>{creatorInitial}</Text>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.detailCreatorName2}>
+                  {reportData?.is_anonymous ? 'Anonymous' : (resolvedCreatorName || 'Community member')}
+                </Text>
+                <Text style={styles.detailCreatorSub2}>
+                  {reportData?.created_at ? `Reported ${formatReportTime(reportData.created_at)}` : 'Recently reported'}
+                </Text>
+              </View>
+              <View style={styles.detailCreatorBadge}>
+                <Ionicons name="flag-outline" size={10} color={colors.textMuted} />
+                <Text style={styles.detailCreatorBadgeText}>Report</Text>
+              </View>
             </View>
-            <View style={styles.reportDetailRow}>
-              <Ionicons name="information-circle-outline" size={13} color={colors.textSecondary} />
-              <Text style={styles.reportDetailValue}>Tap Discuss to view or join conversation</Text>
+
+            {/* Divider */}
+            <View style={styles.detailExpandDivider} />
+
+            {/* Upvote / flag actions */}
+            <View style={[styles.detailFlatSection, styles.detailFlatSectionSpaced]}>
+              <Text style={styles.detailFlatLabel}>Is this accurate?</Text>
+              <View style={styles.verifyRow}>
+                <TouchableOpacity
+                  style={[styles.verifyBtn, styles.verifyBtnYes]}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    showToast('Thanks for confirming!', 'success');
+                  }}
+                >
+                  <Ionicons name="checkmark" size={14} color={colors.accent} />
+                  <Text style={styles.verifyBtnYesText}>Still happening</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.verifyBtn, styles.verifyBtnNo]}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    showToast('Thanks for the update!', 'info');
+                  }}
+                >
+                  <Ionicons name="close" size={14} color={colors.warning} />
+                  <Text style={styles.verifyBtnNoText}>No longer true</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </>
         )}
 
         {/* ── ABOUT ── */}
@@ -7201,40 +7257,43 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
 
       {/* Group context FAB — rendered last so it sits above all other overlays */}
       {!isNavigating && !selectedPin && !selectedPoi && !isSheetExpandedForContent && sheetContent === 'search' && (
-        <TouchableOpacity
-          style={[
-            styles.groupFab,
-            {
-              bottom: sheetPeek + spacing.sm,
-              backgroundColor: activeGroup
-                ? colors.accent
-                : (isDarkMode ? 'rgba(30,30,30,0.90)' : 'rgba(255,255,255,0.94)'),
-              borderWidth: activeGroup ? 0 : StyleSheet.hairlineWidth,
-              borderColor: colors.border,
-              zIndex: 200,
-            },
-          ]}
-          onPress={() => setShowGroupPicker(true)}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name={activeGroup ? 'people' : 'globe-outline'}
-            size={15}
-            color={activeGroup ? '#fff' : colors.textMuted}
-          />
-          <Text
-            style={[styles.groupFabLabel, { color: activeGroup ? '#fff' : colors.textMuted }]}
-            numberOfLines={1}
+        <Animated.View style={{ opacity: groupChipOpacity }} pointerEvents={showGroupPicker ? 'none' : 'auto'}>
+          <TouchableOpacity
+            style={[
+              styles.groupFab,
+              {
+                bottom: sheetPeek + spacing.sm,
+                backgroundColor: activeGroup
+                  ? colors.accent
+                  : (isDarkMode ? 'rgba(30,30,30,0.90)' : 'rgba(255,255,255,0.94)'),
+                borderWidth: activeGroup ? 0 : StyleSheet.hairlineWidth,
+                borderColor: colors.border,
+                zIndex: 200,
+              },
+            ]}
+            onPress={() => setShowGroupPicker(true)}
+            activeOpacity={0.8}
           >
-            {activeGroup ? activeGroup.name : 'Public'}
-          </Text>
-        </TouchableOpacity>
+            <Ionicons
+              name={activeGroup ? 'people' : 'globe-outline'}
+              size={15}
+              color={activeGroup ? '#fff' : colors.textMuted}
+            />
+            <Text
+              style={[styles.groupFabLabel, { color: activeGroup ? '#fff' : colors.textMuted }]}
+              numberOfLines={1}
+            >
+              {activeGroup ? activeGroup.name : 'Public'}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       )}
 
       <GroupPickerModal
         visible={showGroupPicker}
         onClose={() => setShowGroupPicker(false)}
         onManage={() => navigation.navigate('Groups')}
+        chipOpacity={groupChipOpacity}
       />
     </View>
   );

@@ -167,6 +167,11 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
       return;
     }
 
+    if (!content.trim()) {
+      showToast('Please add a description.', 'error');
+      return;
+    }
+
     if (type === 'safety' && subOption === 'emergency') {
       Alert.alert(
         'Emergency?',
@@ -220,7 +225,7 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
         pinId,
         lat: location.lat,
         lng: location.lng,
-        content: content.trim() || undefined,
+        content: content.trim(),
         imageUrl,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         isAnonymous,
@@ -604,7 +609,7 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
         {/* Context */}
         <View style={s.divider} />
         <View style={s.section}>
-          <Text style={s.label}>What's happening? (optional)</Text>
+          <Text style={s.label}>What's happening?</Text>
           <View style={s.inputWrapper}>
             <TextInput
               style={s.input}
@@ -638,9 +643,9 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
 
       <View style={[s.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <TouchableOpacity
-          style={[s.submitButton, loading && s.submitButtonDisabled]}
+          style={[s.submitButton, (loading || !content.trim()) && s.submitButtonDisabled]}
           onPress={handleSubmit}
-          disabled={loading}
+          disabled={loading || !content.trim()}
           activeOpacity={0.8}
         >
           {loading ? (
