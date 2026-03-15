@@ -55,7 +55,9 @@ export const GroupProvider = ({ children }: { children: React.ReactNode }) => {
     setLoadingGroups(true);
     try {
       const res = await groupAPI.getUserGroups();
+      console.log('[GroupContext] raw API response:', JSON.stringify(res));
       const fetched: Group[] = res?.data?.groups ?? [];
+      console.log('[GroupContext] fetched groups:', JSON.stringify(fetched));
       setGroups(fetched);
 
       // Restore active group from storage, validating it still exists
