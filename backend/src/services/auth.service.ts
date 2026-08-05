@@ -1,11 +1,13 @@
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
-import { supabaseAdmin } from '../config/supabase';
+import { supabaseAdmin, supabaseAuthClient } from '../config/supabase';
 import logger from '../utils/logger';
-import { sendMagicLinkEmail, getMagicLinkExpiryMinutes } from './email.service';
+import { AppError } from '../utils/errors';
 
-const SALT_ROUNDS = 12;
+/**
+ * Supabase Auth is the single source of truth for credentials. This service
+ * never signs its own tokens and never stores a password hash — it exchanges
+ * credentials for a Supabase session and keeps our `users` row in sync with the
+ * Supabase Auth user via `supabase_auth_id`.
+ */
 
 export interface SignupData {
   email: string;
@@ -15,403 +17,322 @@ export interface SignupData {
 }
 
 export interface LoginData {
-  identifier: string; // email or username
+  /** Email or username. */
+  identifier: string;
   password: string;
 }
 
+interface SupabaseSession {
+  access_token: string;
+  refresh_token: string;
+  expires_at?: number;
+  expires_in?: number;
+}
+
+/** Shape returned to the client — mirrors the old response so screens don't change. */
+interface AuthResult {
+  user: PublicUser;
+  session: SupabaseSession;
+  /** @deprecated Kept so older builds keep working; same value as session.access_token. */
+  token: string;
+  refreshToken: string;
+}
+
+interface PublicUser {
+  id: string;
+  email: string;
+  name: string;
+  username: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  reputationScore: number;
+  pinsCreated: number;
+  eventsCreated: number;
+}
+
+function toPublicUser(row: Record<string, any>): PublicUser {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    username: row.username ?? null,
+    bio: row.bio ?? null,
+    avatarUrl: row.avatar_url ?? null,
+    reputationScore: row.reputation_score ?? 0,
+    pinsCreated: row.pins_created ?? 0,
+    eventsCreated: row.events_created ?? 0,
+  };
+}
+
+function normalizeUsername(username?: string | null): string | null {
+  if (!username) return null;
+  const clean = username.trim().replace(/^@/, '').toLowerCase();
+  return clean || null;
+}
+
+/** Requires a local part before the @ and a dot in the domain. */
+function looksLikeEmail(value: string): boolean {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
+}
+
 export class AuthService {
-  private generateToken(userId: string, email: string, expiresIn: string): string {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      throw new Error('JWT_SECRET not configured');
-    }
+  /** True when no other user already holds this username. */
+  async isUsernameAvailable(username: string, excludeUserId?: string): Promise<boolean> {
+    const clean = normalizeUsername(username);
+    if (!clean) return false;
 
-    // @ts-ignore - JWT library type inference issue with expiresIn string type
-    return jwt.sign({ userId, email }, secret, { expiresIn });
+    let query = supabaseAdmin.from('users').select('id').eq('username', clean);
+    if (excludeUserId) query = query.neq('id', excludeUserId);
+
+    const { data } = await query.maybeSingle();
+    return !data;
   }
 
-  async signup(data: SignupData) {
-    try {
-      const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
+  async signup(data: SignupData): Promise<AuthResult | { requiresEmailConfirmation: true }> {
+    const email = data.email.trim().toLowerCase();
+    const username = normalizeUsername(data.username);
 
-      // Check username uniqueness if provided
-      if (data.username) {
-        const { data: existing } = await supabaseAdmin
-          .from('users')
-          .select('id')
-          .eq('username', data.username)
-          .single();
-        if (existing) throw new Error('Username is already taken');
-      }
-
-      const { data: user, error } = await supabaseAdmin
-        .from('users')
-        .insert({
-          email: data.email,
-          name: data.name,
-          username: data.username || null,
-          password_hash: hashedPassword,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        if (error.code === '23505') {
-          if (error.message?.includes('username')) throw new Error('Username is already taken');
-          throw new Error('Email already exists');
-        }
-        logger.error('Error creating user:', error);
-        throw new Error('Failed to create user');
-      }
-
-      // Generate tokens
-      const token = this.generateToken(user.id, user.email, process.env.JWT_EXPIRES_IN || '15m');
-      const refreshToken = this.generateToken(
-        user.id,
-        user.email,
-        process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
-      );
-
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          username: user.username,
-          bio: user.bio,
-          avatarUrl: user.avatar_url,
-          reputationScore: user.reputation_score ?? 0,
-          pinsCreated: user.pins_created ?? 0,
-          eventsCreated: user.events_created ?? 0,
-        },
-        token,
-        refreshToken
-      };
-    } catch (error) {
-      logger.error('Error in signup:', error);
-      throw error;
+    if (username && !(await this.isUsernameAvailable(username))) {
+      throw new AppError('USERNAME_TAKEN', 'Username is already taken', 409);
     }
+
+    const { data: signUpData, error } = await supabaseAuthClient.auth.signUp({
+      email,
+      password: data.password,
+      options: {
+        // Read back in findOrCreateUserFromSupabaseAuth when the app row is created.
+        data: { name: data.name.trim(), username },
+      },
+    });
+
+    if (error) {
+      logger.error('Supabase signup error:', error);
+      if (error.message?.toLowerCase().includes('already registered')) {
+        throw new AppError('EMAIL_EXISTS', 'An account with this email already exists. Log in instead.', 409);
+      }
+      throw new AppError('SIGNUP_FAILED', error.message || 'Failed to create account', 400);
+    }
+
+    const authUser = signUpData.user;
+    if (!authUser) {
+      throw new AppError('SIGNUP_FAILED', 'Failed to create account', 500);
+    }
+
+    // Project has email confirmation enabled — no session until they click through.
+    if (!signUpData.session) {
+      return { requiresEmailConfirmation: true };
+    }
+
+    const user = await this.findOrCreateUserFromSupabaseAuth(authUser.id, email, {
+      name: data.name.trim(),
+      username,
+    });
+
+    return this.buildResult(user, signUpData.session);
   }
 
-  async login(data: LoginData) {
-    try {
-      // Support login by email OR username
-      const isEmail = data.identifier.includes('@') && data.identifier.includes('.');
-      const query = supabaseAdmin.from('users').select('*');
-      const { data: user, error } = isEmail
-        ? await query.eq('email', data.identifier).single()
-        : await query.eq('username', data.identifier.replace(/^@/, '')).single();
+  async login(data: LoginData): Promise<AuthResult> {
+    const identifier = data.identifier.trim();
 
-      if (error || !user) {
-        throw new Error('Invalid email/username or password');
-      }
+    // Supabase Auth only accepts an email. Resolving username -> email here
+    // (rather than in a public endpoint) preserves username login without
+    // exposing an email-enumeration oracle.
+    //
+    // Note this is not a bare `includes('@')`: the app renders usernames as
+    // "@ada", so a leading @ marks a username, not an email address.
+    const email = looksLikeEmail(identifier)
+      ? identifier.toLowerCase()
+      : await this.emailForUsername(identifier);
 
-      if (user.password_hash) {
-        const passwordValid = await bcrypt.compare(data.password, user.password_hash);
-        if (!passwordValid) {
-          throw new Error('Invalid email or password');
-        }
-      }
-
-      // Generate tokens
-      const token = this.generateToken(user.id, user.email, process.env.JWT_EXPIRES_IN || '15m');
-      const refreshToken = this.generateToken(
-        user.id,
-        user.email,
-        process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
-      );
-
-      // Update last active
-      await supabaseAdmin
-        .from('users')
-        .update({ last_active_at: new Date().toISOString() })
-        .eq('id', user.id);
-
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          username: user.username,
-          bio: user.bio,
-          avatarUrl: user.avatar_url,
-          reputationScore: user.reputation_score ?? 0,
-          pinsCreated: user.pins_created ?? 0,
-          eventsCreated: user.events_created ?? 0,
-        },
-        token,
-        refreshToken
-      };
-    } catch (error) {
-      logger.error('Error in login:', error);
-      throw error;
+    if (!email) {
+      throw new AppError('LOGIN_FAILED', 'Invalid email/username or password', 401);
     }
+
+    const { data: signInData, error } = await supabaseAuthClient.auth.signInWithPassword({
+      email,
+      password: data.password,
+    });
+
+    if (error || !signInData.session || !signInData.user) {
+      logger.warn('Failed login attempt', { identifier, reason: error?.message });
+      throw new AppError('LOGIN_FAILED', 'Invalid email/username or password', 401);
+    }
+
+    const user = await this.findOrCreateUserFromSupabaseAuth(
+      signInData.user.id,
+      signInData.user.email ?? email
+    );
+
+    await supabaseAdmin
+      .from('users')
+      .update({ last_active_at: new Date().toISOString() })
+      .eq('id', user.id);
+
+    return this.buildResult(user, signInData.session);
   }
 
-  async refreshToken(refreshToken: string) {
-    try {
-      const secret = process.env.JWT_SECRET;
-      if (!secret) {
-        throw new Error('JWT_SECRET not configured');
-      }
+  /** Exchange a Supabase refresh token for a new session. */
+  async refreshToken(refreshToken: string): Promise<{ session: SupabaseSession; token: string; refreshToken: string }> {
+    const { data, error } = await supabaseAuthClient.auth.refreshSession({
+      refresh_token: refreshToken,
+    });
 
-      const decoded = jwt.verify(refreshToken, secret) as { userId: string; email: string };
-
-      const newToken = this.generateToken(decoded.userId, decoded.email, process.env.JWT_EXPIRES_IN || '15m');
-      const newRefreshToken = this.generateToken(
-        decoded.userId,
-        decoded.email,
-        process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
-      );
-
-      return {
-        token: newToken,
-        refreshToken: newRefreshToken
-      };
-    } catch (error) {
-      logger.error('Error refreshing token:', error);
-      throw new Error('Invalid refresh token');
+    if (error || !data.session) {
+      throw new AppError('INVALID_TOKEN', 'Invalid refresh token', 401);
     }
+
+    return {
+      session: data.session as SupabaseSession,
+      token: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+    };
   }
 
-  async getCurrentUser(userId: string) {
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error || !data) {
-        throw new Error('User not found');
-      }
-
-      return {
-        id: data.id,
-        email: data.email,
-        name: data.name,
-        username: data.username,
-        bio: data.bio,
-        avatarUrl: data.avatar_url,
-        reputationScore: data.reputation_score,
-        pinsCreated: data.pins_created,
-        eventsCreated: data.events_created
-      };
-    } catch (error) {
-      logger.error('Error getting current user:', error);
-      throw error;
-    }
-  }
-
-  /** Create or return app user when first signing in with Supabase Auth (magic link). */
-  async findOrCreateUserFromSupabaseAuth(supabaseAuthId: string, email: string) {
+  /** Send a password reset email. Always resolves, so it can't be used to probe for accounts. */
+  async requestPasswordReset(email: string): Promise<void> {
     const normalized = email.trim().toLowerCase();
+    const redirectTo = process.env.PASSWORD_RESET_REDIRECT_URL || undefined;
+
+    const { error } = await supabaseAuthClient.auth.resetPasswordForEmail(normalized, {
+      redirectTo,
+    });
+
+    if (error) {
+      // Logged, not thrown: the response must look identical whether or not
+      // the address is registered.
+      logger.warn('Password reset request failed', { email: normalized, reason: error.message });
+    }
+  }
+
+  async getCurrentUser(userId: string): Promise<PublicUser> {
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error || !data) {
+      throw new AppError('USER_NOT_FOUND', 'User not found', 404);
+    }
+
+    return toPublicUser(data);
+  }
+
+  /**
+   * Resolve the app `users` row for a Supabase Auth user, creating and linking
+   * it on first sign-in. `metadata` comes from the signup call; on later logins
+   * it is read back off the Supabase user record instead.
+   */
+  async findOrCreateUserFromSupabaseAuth(
+    supabaseAuthId: string,
+    email: string,
+    metadata?: { name?: string; username?: string | null }
+  ): Promise<PublicUser> {
+    const normalized = email.trim().toLowerCase();
+
     const { data: existingByAuth } = await supabaseAdmin
       .from('users')
       .select('*')
       .eq('supabase_auth_id', supabaseAuthId)
-      .single();
-    if (existingByAuth) {
-      return this.getCurrentUser(existingByAuth.id);
-    }
-
-    const { data: existingByEmail } = await supabaseAdmin
-      .from('users')
-      .select('id')
-      .eq('email', normalized)
-      .single();
-    if (existingByEmail) {
-      await supabaseAdmin
-        .from('users')
-        .update({ supabase_auth_id: supabaseAuthId })
-        .eq('id', existingByEmail.id);
-      return this.getCurrentUser(existingByEmail.id);
-    }
-
-    const { data: pending } = await supabaseAdmin
-      .from('pending_signups')
-      .select('name, username')
-      .eq('email', normalized)
-      .gte('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
       .maybeSingle();
 
-    const name = pending?.name?.trim() || '';
-    const username = pending?.username?.trim() || null;
-    if (username) {
-      const { data: taken } = await supabaseAdmin.from('users').select('id').eq('username', username).single();
-      if (taken) {
-        logger.warn('Pending signup username already taken, creating without', { username });
-      }
+    if (existingByAuth) return toPublicUser(existingByAuth);
+
+    // Pre-existing row from the old password system — link it rather than
+    // creating a duplicate.
+    const { data: existingByEmail } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('email', normalized)
+      .maybeSingle();
+
+    if (existingByEmail) {
+      const { data: linked } = await supabaseAdmin
+        .from('users')
+        .update({ supabase_auth_id: supabaseAuthId })
+        .eq('id', existingByEmail.id)
+        .select()
+        .single();
+
+      return toPublicUser(linked ?? existingByEmail);
     }
 
-    const { data: user, error } = await supabaseAdmin
+    const resolved = metadata ?? (await this.metadataForAuthUser(supabaseAuthId));
+    const name = resolved?.name?.trim() || 'User';
+    let username = normalizeUsername(resolved?.username);
+
+    // Someone may have claimed it between signup and first sign-in.
+    if (username && !(await this.isUsernameAvailable(username))) {
+      logger.warn('Username taken by the time the account was created', { username });
+      username = null;
+    }
+
+    const { data: created, error } = await supabaseAdmin
       .from('users')
       .insert({
         supabase_auth_id: supabaseAuthId,
         email: normalized,
-        name: name || 'User',
-        username: username || null,
-        password_hash: null,
+        name,
+        username,
       })
       .select()
       .single();
 
     if (error) {
+      // Lost a race with a concurrent request for the same user — re-read.
       if (error.code === '23505') {
-        const { data: byAuth } = await supabaseAdmin
+        const { data: raced } = await supabaseAdmin
           .from('users')
           .select('*')
           .eq('supabase_auth_id', supabaseAuthId)
-          .single();
-        if (byAuth) return this.getCurrentUser(byAuth.id);
+          .maybeSingle();
+        if (raced) return toPublicUser(raced);
       }
       logger.error('Error creating user from Supabase Auth:', error);
-      throw new Error('Failed to create user');
+      throw new AppError('SIGNUP_FAILED', 'Failed to create user', 500);
     }
 
-    await supabaseAdmin.from('pending_signups').delete().eq('email', normalized);
-    return this.getCurrentUser(user.id);
+    return toPublicUser(created);
   }
 
-  /** Store name/username for signup; frontend then calls Supabase signInWithOtp (Supabase sends the email). */
-  async savePendingSignup(data: { email: string; name: string; username?: string }) {
-    const email = data.email.trim().toLowerCase();
-    if (data.username) {
-      const { data: existing } = await supabaseAdmin.from('users').select('id').eq('username', data.username).single();
-      if (existing) throw new Error('Username is already taken');
-    }
-    const { data: existingUser } = await supabaseAdmin.from('users').select('id').eq('email', email).single();
-    if (existingUser) throw new Error('An account with this email already exists. Log in instead.');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await supabaseAdmin.from('pending_signups').upsert(
-      { email, name: data.name.trim(), username: data.username?.trim() || null, expires_at: expiresAt.toISOString() },
-      { onConflict: 'email' }
-    );
-    return { message: 'OK' };
-  }
+  // ─── internals ──────────────────────────────────────────────
 
-  /** Request a magic link for login (email only). */
-  async requestMagicLink(email: string) {
-    const normalized = email.trim().toLowerCase();
-    const { data: user } = await supabaseAdmin.from('users').select('id').eq('email', normalized).single();
-    if (!user) {
-      throw new Error('No account found with this email. Sign up first.');
-    }
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + getMagicLinkExpiryMinutes() * 60 * 1000);
-    await supabaseAdmin.from('magic_links').insert({
-      token,
-      email: normalized,
-      type: 'login',
-      expires_at: expiresAt.toISOString(),
-    });
-    await sendMagicLinkEmail(normalized, token, false);
-    return { message: 'Check your email for the login link.' };
-  }
+  private async emailForUsername(username: string): Promise<string | null> {
+    const clean = normalizeUsername(username);
+    if (!clean) return null;
 
-  /** Request a magic link for signup (email + name + username). */
-  async requestSignupMagicLink(data: { email: string; name: string; username?: string }) {
-    const email = data.email.trim().toLowerCase();
-    if (data.username) {
-      const { data: existing } = await supabaseAdmin
-        .from('users')
-        .select('id')
-        .eq('username', data.username)
-        .single();
-      if (existing) throw new Error('Username is already taken');
-    }
-    const { data: existingUser } = await supabaseAdmin.from('users').select('id').eq('email', email).single();
-    if (existingUser) throw new Error('An account with this email already exists. Log in instead.');
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + getMagicLinkExpiryMinutes() * 60 * 1000);
-    await supabaseAdmin.from('magic_links').insert({
-      token,
-      email,
-      type: 'signup',
-      name: data.name.trim(),
-      username: data.username?.trim() || null,
-      expires_at: expiresAt.toISOString(),
-    });
-    await sendMagicLinkEmail(email, token, true);
-    return { message: 'Check your email to complete signup.' };
-  }
-
-  /** Verify magic link token and return user + tokens (creates user for signup). */
-  async verifyMagicLink(token: string) {
-    const { data: row, error } = await supabaseAdmin
-      .from('magic_links')
-      .select('*')
-      .eq('token', token)
-      .single();
-    if (error || !row) throw new Error('Invalid or expired link. Request a new one.');
-    if (new Date(row.expires_at) < new Date()) {
-      await supabaseAdmin.from('magic_links').delete().eq('token', token);
-      throw new Error('This link has expired. Request a new one.');
-    }
-    const email = row.email;
-
-    if (row.type === 'signup') {
-      const { data: user, error: insertError } = await supabaseAdmin
-        .from('users')
-        .insert({
-          email,
-          name: row.name,
-          username: row.username || null,
-          password_hash: null,
-        })
-        .select()
-        .single();
-      if (insertError) {
-        if (insertError.code === '23505') throw new Error('An account with this email already exists. Log in instead.');
-        logger.error('Error creating user from magic link:', insertError);
-        throw new Error('Failed to create account');
-      }
-      await supabaseAdmin.from('magic_links').delete().eq('token', token);
-      const accessToken = this.generateToken(user.id, user.email, process.env.JWT_EXPIRES_IN || '15m');
-      const refreshToken = this.generateToken(user.id, user.email, process.env.REFRESH_TOKEN_EXPIRES_IN || '7d');
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          username: user.username,
-          bio: user.bio,
-          avatarUrl: user.avatar_url,
-          reputationScore: user.reputation_score ?? 0,
-          pinsCreated: user.pins_created ?? 0,
-          eventsCreated: user.events_created ?? 0,
-        },
-        token: accessToken,
-        refreshToken,
-      };
-    }
-
-    const { data: user, error: userError } = await supabaseAdmin
+    const { data } = await supabaseAdmin
       .from('users')
-      .select('*')
-      .eq('email', email)
-      .single();
-    if (userError || !user) throw new Error('User not found. Request a new link.');
-    await supabaseAdmin.from('magic_links').delete().eq('token', token);
-    await supabaseAdmin.from('users').update({ last_active_at: new Date().toISOString() }).eq('id', user.id);
-    const accessToken = this.generateToken(user.id, user.email, process.env.JWT_EXPIRES_IN || '15m');
-    const refreshToken = this.generateToken(user.id, user.email, process.env.REFRESH_TOKEN_EXPIRES_IN || '7d');
+      .select('email')
+      .eq('username', clean)
+      .maybeSingle();
+
+    return data?.email ?? null;
+  }
+
+  private async metadataForAuthUser(
+    supabaseAuthId: string
+  ): Promise<{ name?: string; username?: string | null } | null> {
+    try {
+      const { data } = await supabaseAdmin.auth.admin.getUserById(supabaseAuthId);
+      const meta = data?.user?.user_metadata as Record<string, unknown> | undefined;
+      if (!meta) return null;
+      return {
+        name: typeof meta.name === 'string' ? meta.name : undefined,
+        username: typeof meta.username === 'string' ? meta.username : null,
+      };
+    } catch (err) {
+      logger.warn('Could not read Supabase user metadata', { supabaseAuthId, err });
+      return null;
+    }
+  }
+
+  private buildResult(user: PublicUser, session: SupabaseSession): AuthResult {
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        username: user.username,
-        bio: user.bio,
-        avatarUrl: user.avatar_url,
-        reputationScore: user.reputation_score ?? 0,
-        pinsCreated: user.pins_created ?? 0,
-        eventsCreated: user.events_created ?? 0,
-      },
-      token: accessToken,
-      refreshToken,
+      user,
+      session,
+      token: session.access_token,
+      refreshToken: session.refresh_token,
     };
   }
 }

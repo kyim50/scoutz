@@ -8,6 +8,15 @@ export class SchedulerService {
   private tasks: cron.ScheduledTask[] = [];
 
   start() {
+    // These cron jobs run inside the API process, so every instance would run
+    // every cleanup concurrently once this scales past one dyno. Gate on an
+    // explicit opt-out (default on, so single-instance deploys are unaffected)
+    // and set RUN_SCHEDULER=false on all but one instance when scaling.
+    if (process.env.RUN_SCHEDULER === 'false') {
+      logger.info('Scheduler disabled on this instance (RUN_SCHEDULER=false)');
+      return;
+    }
+
     logger.info('Starting scheduler service...');
     
     // Run event cleanup every 5 minutes

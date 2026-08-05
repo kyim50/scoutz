@@ -1,84 +1,67 @@
 import { Router } from 'express';
-import { body } from 'express-validator';
+import { body, query } from 'express-validator';
 import {
   signup,
   login,
   refreshToken,
   getCurrentUser,
   logout,
-  requestMagicLink,
-  requestSignupMagicLink,
-  verifyMagicLink,
-  pendingSignup,
+  checkUsername,
+  requestPasswordReset,
 } from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth';
-import { apiLimiter } from '../middleware/rateLimiter';
+import { authLimiter, apiLimiter } from '../middleware/rateLimiter';
+import { runValidation } from '../middleware/validator';
 
 const router = Router();
 
-// Apply rate limiting to all auth routes
-router.use(apiLimiter);
-
-// POST /api/auth/signup (legacy password signup – consider removing after full magic-link rollout)
+// Credential endpoints are the most attacked surface in the app, so they get a
+// tighter budget than the app-wide default.
 router.post(
   '/signup',
+  authLimiter,
   [
     body('email').isEmail().normalizeEmail(),
-    body('password').isLength({ min: 8 }),
-    body('name').trim().isLength({ min: 2, max: 100 })
+    body('password')
+      .isLength({ min: 8 })
+      .withMessage('Password must be at least 8 characters'),
+    body('name').trim().isLength({ min: 2, max: 100 }),
+    body('username').optional({ values: 'falsy' }).trim().isLength({ min: 3, max: 30 }),
   ],
+  runValidation,
   signup
 );
 
-// POST /api/auth/login (email or username + password)
 router.post(
   '/login',
+  authLimiter,
   [
     body('identifier').trim().notEmpty().withMessage('Email or username required'),
-    body('password').notEmpty()
+    body('password').notEmpty(),
   ],
+  runValidation,
   login
 );
 
-// Magic link auth
 router.post(
-  '/magic-link',
+  '/forgot-password',
+  authLimiter,
   [body('email').isEmail().normalizeEmail()],
-  requestMagicLink
-);
-router.post(
-  '/signup-magic-link',
-  [
-    body('email').isEmail().normalizeEmail(),
-    body('name').trim().isLength({ min: 2, max: 100 }),
-    body('username').optional().trim().isLength({ min: 3, max: 100 }),
-  ],
-  requestSignupMagicLink
-);
-router.post(
-  '/verify-magic-link',
-  [body('token').notEmpty().trim()],
-  verifyMagicLink
+  runValidation,
+  requestPasswordReset
 );
 
-// Store name/username before Supabase signInWithOtp (no auth required)
-router.post(
-  '/pending-signup',
-  [
-    body('email').isEmail().normalizeEmail(),
-    body('name').trim().isLength({ min: 2, max: 100 }),
-    body('username').optional().trim().isLength({ min: 3, max: 100 }),
-  ],
-  pendingSignup
+router.post('/refresh', authLimiter, refreshToken);
+
+router.get(
+  '/username-available',
+  apiLimiter,
+  [query('username').trim().isLength({ min: 3, max: 30 })],
+  runValidation,
+  checkUsername
 );
 
-// POST /api/auth/refresh
-router.post('/refresh', refreshToken);
-
-// POST /api/auth/logout
 router.post('/logout', authenticate, logout);
-
-// GET /api/auth/me
 router.get('/me', authenticate, getCurrentUser);
 
 export default router;

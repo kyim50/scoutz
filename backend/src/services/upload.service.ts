@@ -1,16 +1,16 @@
+import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
 import sharp from 'sharp';
 import logger from '../utils/logger';
+import { badRequest, isAppError } from '../utils/errors';
 
 const BUCKET_NAME = 'images';
 
-function uuidv4() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
+/** Formats we are willing to decode, determined from file bytes not headers. */
+const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp', 'heif', 'gif', 'avif']);
+
+/** ~50MP. Guards against decompression bombs. */
+const MAX_PIXELS = 50_000_000;
 
 export class UploadService {
   /**
@@ -18,10 +18,29 @@ export class UploadService {
    */
   async uploadImage(file: Express.Multer.File): Promise<{ url: string; thumbnailUrl: string }> {
     try {
-      const fileId = uuidv4();
+      const fileId = randomUUID();
+
+      // Decode the header before doing any work. multer's fileFilter only sees
+      // the client-supplied mimetype, which is trivially forged — this reads
+      // the actual bytes and is what decides whether the file is an image.
+      const metadata = await sharp(file.buffer)
+        .metadata()
+        .catch(() => null);
+
+      if (!metadata?.format || !ALLOWED_FORMATS.has(metadata.format)) {
+        throw badRequest('That file is not a supported image (JPEG, PNG, WebP, HEIF, or GIF)');
+      }
+
+      // Reject decompression bombs: a small file can declare enormous
+      // dimensions and exhaust memory when sharp materialises the bitmap.
+      const pixels = (metadata.width ?? 0) * (metadata.height ?? 0);
+      if (pixels > MAX_PIXELS) {
+        throw badRequest('That image is too large. Maximum 50 megapixels.');
+      }
 
       // Resize main image (max 1200px)
       const resizedImage = await sharp(file.buffer)
+        .rotate() // honour EXIF orientation before stripping it
         .resize(1200, 1200, {
           fit: 'inside',
           withoutEnlargement: true,
@@ -31,6 +50,7 @@ export class UploadService {
 
       // Create thumbnail (300px)
       const thumbnail = await sharp(file.buffer)
+        .rotate()
         .resize(300, 300, {
           fit: 'cover',
         })
@@ -75,6 +95,9 @@ export class UploadService {
 
       return { url, thumbnailUrl };
     } catch (error) {
+      // Preserve validation failures so the user is told what was wrong with
+      // their file rather than getting a generic 500.
+      if (isAppError(error)) throw error;
       logger.error('Error uploading image:', error);
       throw new Error('Failed to upload image');
     }

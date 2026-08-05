@@ -18,12 +18,25 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
-// Anon client (for user operations)
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 if (!supabaseAnonKey) {
   throw new Error('Missing SUPABASE_ANON_KEY');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/**
+ * Anon client used to exchange credentials for a Supabase session during
+ * login/signup.
+ *
+ * Session persistence MUST stay off: this is a module-level singleton shared by
+ * every request, so a persisted session would leak one user's auth state into
+ * another user's request.
+ */
+export const supabaseAuthClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false,
+  },
+});
 
-export default supabase;
+export default supabaseAdmin;

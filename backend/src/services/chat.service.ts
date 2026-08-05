@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
 import logger from '../utils/logger';
+import { forbidden } from '../utils/errors';
 import pushService from './push.service';
 import { filterCooldown } from '../utils/notificationCooldown';
 
@@ -107,7 +108,7 @@ export class ChatService {
         .single();
 
       if (!message || message.user_id !== userId) {
-        throw new Error('Unauthorized');
+        throw forbidden();
       }
 
       const { error } = await supabaseAdmin

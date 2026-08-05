@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
 import logger from '../utils/logger';
+import { forbidden } from '../utils/errors';
 import aiService from './ai.service';
 import socketService from './socket.service';
 import reputationService from './reputation.service';
@@ -111,23 +112,13 @@ export class PinService {
         }
       });
 
-      // Increment user pin counter (atomic RPC preferred, fallback to manual)
-      try {
-        await supabaseAdmin.rpc('increment_user_pins_created', { uid: data.userId });
-      } catch (rpcError) {
-        logger.warn('increment_user_pins_created RPC failed, using fallback:', rpcError);
-        try {
-          const { data: u } = await supabaseAdmin
-            .from('users')
-            .select('pins_created')
-            .eq('id', data.userId)
-            .single();
-          if (u) {
-            await supabaseAdmin.from('users').update({ pins_created: (u.pins_created || 0) + 1 }).eq('id', data.userId);
-          }
-        } catch (fallbackError) {
-          logger.error('Failed to increment pins_created counter:', fallbackError);
-        }
+      // Atomic increment. The old read-modify-write fallback lost increments
+      // under concurrency, so a failure here is logged rather than papered over.
+      const { error: counterError } = await supabaseAdmin.rpc('increment_user_pins_created', {
+        uid: data.userId,
+      });
+      if (counterError) {
+        logger.error('Failed to increment pins_created counter:', counterError);
       }
 
       // Award reputation for creating a pin
@@ -231,7 +222,7 @@ export class PinService {
         .single();
 
       if (!existingPin || existingPin.user_id !== userId) {
-        throw new Error('Unauthorized');
+        throw forbidden();
       }
 
       const updateFields: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -274,7 +265,7 @@ export class PinService {
         .single();
 
       if (!existingPin || existingPin.user_id !== userId) {
-        throw new Error('Unauthorized');
+        throw forbidden();
       }
 
       const { error } = await supabaseAdmin
@@ -291,16 +282,10 @@ export class PinService {
 
       socketService.broadcastDeletedPin(pinId);
 
-      try {
-        const { data: u } = await supabaseAdmin
-          .from('users')
-          .select('pins_created')
-          .eq('id', userId)
-          .single();
-        if (u) {
-          await supabaseAdmin.from('users').update({ pins_created: Math.max(0, (u.pins_created || 0) - 1) }).eq('id', userId);
-        }
-      } catch (counterError) {
+      const { error: counterError } = await supabaseAdmin.rpc('decrement_user_pins_created', {
+        uid: userId,
+      });
+      if (counterError) {
         logger.error('Failed to decrement pins_created counter:', counterError);
       }
 

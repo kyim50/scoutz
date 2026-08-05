@@ -6,7 +6,10 @@ import { sendSuccess, sendError } from '../utils/response';
 export const getUserProfile = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.params.id;
-    const user = await userService.getUserProfile(userId);
+    // Client sends its IANA zone so streak day-boundaries match the user's
+    // local calendar rather than UTC.
+    const timeZone = typeof req.query.tz === 'string' ? req.query.tz : undefined;
+    const user = await userService.getUserProfile(userId, timeZone);
 
     if (!user) {
       return sendError(res, 'NOT_FOUND', 'User not found', 404);

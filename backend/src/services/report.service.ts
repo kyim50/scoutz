@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
 import logger from '../utils/logger';
+import { forbidden } from '../utils/errors';
 import reputationService from './reputation.service';
 
 export interface CreateReportData {
@@ -104,7 +105,7 @@ export class ReportService {
       }
 
       if (report.user_id !== userId) {
-        throw new Error('Unauthorized');
+        throw forbidden();
       }
 
       const { error } = await supabaseAdmin

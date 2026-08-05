@@ -1,11 +1,43 @@
 import { Server, Socket } from 'socket.io';
 import logger from '../utils/logger';
-import jwt from 'jsonwebtoken';
+import { verifyAccessToken } from '../middleware/auth';
 import chatService from './chat.service';
 import reportChatService from './reportChat.service';
+import { supabaseAdmin } from '../config/supabase';
+import groupService from './group.service';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
+}
+
+/** Longest chat message we accept, matching the reports content cap. */
+const MAX_MESSAGE_LENGTH = 1000;
+
+/**
+ * A room is readable if the item is public (no group_id), or if the user
+ * belongs to the group that owns it. Without this check any authenticated
+ * user could join any event/report room and read private group chatter.
+ */
+async function canAccess(
+  table: 'events' | 'reports',
+  id: string,
+  userId: string
+): Promise<boolean> {
+  if (!id || typeof id !== 'string') return false;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select('group_id')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) return false;
+    if (!data.group_id) return true;
+    return await groupService.isMember(data.group_id, userId);
+  } catch (err) {
+    logger.error(`Error checking ${table} room access:`, err);
+    return false;
+  }
 }
 
 export class SocketService {
@@ -22,21 +54,28 @@ export class SocketService {
   private setupMiddleware() {
     if (!this.io) return;
 
-    // Authentication middleware
-    this.io.use((socket: AuthenticatedSocket, next) => {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
-      
+    // Authentication middleware. Runs on every connect AND every reconnect,
+    // so a client that re-reads its token picks up a refreshed one here.
+    this.io.use(async (socket: AuthenticatedSocket, next) => {
+      const token =
+        socket.handshake.auth?.token || socket.handshake.headers.authorization?.split(' ')[1];
+
       if (!token) {
         return next(new Error('Authentication error: No token provided'));
       }
 
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
-        socket.userId = decoded.userId;
-        next();
+        const user = await verifyAccessToken(token);
+        if (!user) {
+          // Signalled distinctly so the client knows to refresh and retry
+          // rather than treating it as a permanent failure.
+          return next(new Error('TOKEN_EXPIRED'));
+        }
+        socket.userId = user.id;
+        return next();
       } catch (error) {
         logger.error('Socket authentication error:', error);
-        next(new Error('Authentication error: Invalid token'));
+        return next(new Error('Authentication error: Invalid token'));
       }
     });
   }
@@ -52,10 +91,15 @@ export class SocketService {
       }
 
       // Join event room
-      socket.on('join-event', (eventId: string) => {
+      socket.on('join-event', async (eventId: string) => {
+        if (!socket.userId || !(await canAccess('events', eventId, socket.userId))) {
+          socket.emit('error', { message: 'Cannot join this event chat' });
+          return;
+        }
+
         socket.join(`event:${eventId}`);
         logger.info(`User ${socket.userId} joined event ${eventId}`);
-        
+
         // Notify others in the room
         socket.to(`event:${eventId}`).emit('user-joined', {
           userId: socket.userId,
@@ -82,10 +126,22 @@ export class SocketService {
             return;
           }
 
+          const text = typeof data?.text === 'string' ? data.text.trim() : '';
+          if (!text || text.length > MAX_MESSAGE_LENGTH) {
+            socket.emit('error', { message: 'Message must be 1-1000 characters' });
+            return;
+          }
+
+          // Re-check on send: a client can emit without ever joining the room.
+          if (!(await canAccess('events', data.eventId, socket.userId))) {
+            socket.emit('error', { message: 'Cannot post to this event chat' });
+            return;
+          }
+
           const message = await chatService.saveMessage(
             data.eventId,
             socket.userId,
-            data.text,
+            text,
             data.isAnonymous || false
           );
 
@@ -125,7 +181,12 @@ export class SocketService {
 
       // --- Report chat rooms ---
 
-      socket.on('join-report', (reportId: string) => {
+      socket.on('join-report', async (reportId: string) => {
+        if (!socket.userId || !(await canAccess('reports', reportId, socket.userId))) {
+          socket.emit('error', { message: 'Cannot join this report chat' });
+          return;
+        }
+
         socket.join(`report:${reportId}`);
         logger.info(`User ${socket.userId} joined report chat ${reportId}`);
       });
@@ -142,10 +203,21 @@ export class SocketService {
             return;
           }
 
+          const text = typeof data?.text === 'string' ? data.text.trim() : '';
+          if (!text || text.length > MAX_MESSAGE_LENGTH) {
+            socket.emit('error', { message: 'Message must be 1-1000 characters' });
+            return;
+          }
+
+          if (!(await canAccess('reports', data.reportId, socket.userId))) {
+            socket.emit('error', { message: 'Cannot post to this report chat' });
+            return;
+          }
+
           const message = await reportChatService.saveMessage(
             data.reportId,
             socket.userId,
-            data.text,
+            text,
             data.isAnonymous || false
           );
 

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
 import logger from '../utils/logger';
+import { forbidden } from '../utils/errors';
 
 export class FeedService {
   async createPost(eventId: string, userId: string, content?: string, imageUrl?: string) {
@@ -145,7 +146,7 @@ export class FeedService {
         .single();
 
       if (!post || post.user_id !== userId) {
-        throw new Error('Unauthorized');
+        throw forbidden();
       }
 
       const { error } = await supabaseAdmin

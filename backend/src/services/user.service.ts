@@ -17,12 +17,45 @@ export interface NearbyLiveUser {
   distanceMeters: number;
 }
 
+/**
+ * Columns safe to expose on the public profile endpoint. Never widen this to
+ * `*` — the users row also holds email, live GPS coordinates, the push token
+ * and supabase_auth_id, and GET /api/users/:id is unauthenticated.
+ */
+const PUBLIC_PROFILE_COLUMNS =
+  'id, name, username, bio, avatar_url, school, major, reputation_score, pins_created, events_created, created_at';
+
+/**
+ * Build a YYYY-MM-DD formatter for a specific IANA time zone, falling back to
+ * UTC if the zone is unrecognised (an old client, or a hand-edited value).
+ */
+function dayFormatter(timeZone: string): (date: Date) => string {
+  let formatter: Intl.DateTimeFormat;
+  try {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  } catch {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  }
+  // en-CA formats as YYYY-MM-DD, which sorts and compares as a plain string.
+  return (date: Date) => formatter.format(date);
+}
+
 export class UserService {
-  async getUserProfile(userId: string) {
+  async getUserProfile(userId: string, timeZone?: string) {
     try {
       const [profileResult, streak] = await Promise.all([
-        supabaseAdmin.from('users').select('*').eq('id', userId).single(),
-        this.getStreak(userId),
+        supabaseAdmin.from('users').select(PUBLIC_PROFILE_COLUMNS).eq('id', userId).single(),
+        this.getStreak(userId, timeZone),
       ]);
 
       const { data, error } = profileResult;
@@ -157,7 +190,15 @@ export class UserService {
     }
   }
 
-  async getStreak(userId: string): Promise<number> {
+  /**
+   * Consecutive days with at least one contribution.
+   *
+   * `timeZone` is the user's IANA zone (e.g. "America/New_York"). Day
+   * boundaries must be computed there, not in UTC: a contribution at 8pm in
+   * UTC-5 lands on the *next* UTC day, so UTC bucketing silently broke streaks
+   * for anyone west of Greenwich.
+   */
+  async getStreak(userId: string, timeZone = 'UTC'): Promise<number> {
     try {
       // Look back up to 366 days to cover any realistic streak
       const since = new Date(Date.now() - 366 * 24 * 60 * 60 * 1000).toISOString();
@@ -168,30 +209,29 @@ export class UserService {
         supabaseAdmin.from('reports').select('created_at').eq('user_id', userId).gte('created_at', since),
       ]);
 
+      const localDay = dayFormatter(timeZone);
+
       const activeDays = new Set<string>();
       const addRows = (rows: any[]) => {
         for (const row of rows || []) {
-          activeDays.add((row.created_at as string).slice(0, 10));
+          activeDays.add(localDay(new Date(row.created_at as string)));
         }
       };
       addRows(pinsResult.data || []);
       addRows(eventsResult.data || []);
       addRows(reportsResult.data || []);
 
-      // Count consecutive days from today backwards
+      // Walk backwards from today in the user's local calendar.
       let streak = 0;
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-
       for (let i = 0; i < 366; i++) {
-        const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-        const dateStr = d.toISOString().slice(0, 10);
+        const day = localDay(new Date(Date.now() - i * 24 * 60 * 60 * 1000));
 
-        if (activeDays.has(dateStr)) {
+        if (activeDays.has(day)) {
           streak++;
+        } else if (i === 0) {
+          // Today may simply not have happened yet — don't break the streak.
+          continue;
         } else {
-          // Allow one gap for today (streak may not have started yet today)
-          if (i === 0) continue;
           break;
         }
       }
@@ -260,6 +300,14 @@ export class UserService {
 
   async deleteAccount(userId: string): Promise<void> {
     try {
+      // Read the Supabase Auth id up front. It is a different id from our own
+      // users.id — passing users.id to auth.admin.deleteUser always fails.
+      const { data: userRow } = await supabaseAdmin
+        .from('users')
+        .select('supabase_auth_id')
+        .eq('id', userId)
+        .single();
+
       // Delete all user content first (cascade-safe order)
       await Promise.all([
         supabaseAdmin.from('pins').delete().eq('user_id', userId),
@@ -267,7 +315,16 @@ export class UserService {
         supabaseAdmin.from('events').delete().eq('user_id', userId),
         supabaseAdmin.from('event_attendees').delete().eq('user_id', userId),
         supabaseAdmin.from('pin_verifications').delete().eq('user_id', userId),
+        supabaseAdmin.from('group_members').delete().eq('user_id', userId),
+        supabaseAdmin.from('saved_items').delete().eq('user_id', userId),
+        supabaseAdmin.from('reviews').delete().eq('user_id', userId),
+        supabaseAdmin.from('event_messages').delete().eq('user_id', userId),
+        supabaseAdmin.from('report_messages').delete().eq('user_id', userId),
       ]);
+
+      // Groups owned by this user go too — otherwise they are left orphaned
+      // with an owner_id pointing at a deleted row.
+      await supabaseAdmin.from('groups').delete().eq('owner_id', userId);
 
       // Delete the user row from our users table
       const { error: userRowError } = await supabaseAdmin
@@ -280,11 +337,16 @@ export class UserService {
         throw new Error('Failed to delete user data');
       }
 
-      // Delete the Supabase Auth account — requires service role key
-      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-      if (authError) {
-        logger.error('Error deleting Supabase auth user:', authError);
-        throw new Error('Failed to delete auth account');
+      // Delete the Supabase Auth account, if this user has one. Password-only
+      // accounts have no auth record, and a failure here must not surface as an
+      // error: the app data is already gone and the client needs to sign out.
+      if (userRow?.supabase_auth_id) {
+        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(
+          userRow.supabase_auth_id
+        );
+        if (authError) {
+          logger.error('Error deleting Supabase auth user:', authError);
+        }
       }
 
       logger.info('Account deleted:', { userId });

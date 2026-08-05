@@ -1,60 +1,59 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import { sendError } from '../utils/response';
 import logger from '../utils/logger';
+import authService from '../services/auth.service';
 import { supabaseAdmin } from '../config/supabase';
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
   };
-  /** Set when Bearer token is a valid Supabase access token but we don't have a users row yet (first sign-in). */
-  supabaseAuth?: {
-    id: string;
-    email: string;
-  };
 }
 
-/** Resolve a Bearer token to an app user. Returns the user or null. */
-async function resolveUser(token: string): Promise<{ id: string; email: string } | null> {
-  const jwtSecret = process.env.JWT_SECRET;
-  if (jwtSecret) {
-    try {
-      const decoded = jwt.verify(token, jwtSecret) as { userId: string; email: string };
-      return { id: decoded.userId, email: decoded.email };
-    } catch (err) {
-      if (!(err instanceof jwt.TokenExpiredError) && !(err instanceof jwt.JsonWebTokenError)) throw err;
-    }
-  }
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
-    });
-    if (authRes.ok) {
-      const authUser = await authRes.json() as { id: string; email?: string };
-      const sub = authUser?.id;
-      const email = (authUser?.email ?? '').trim().toLowerCase();
-      if (sub && email) {
-        const { data: appUser } = await supabaseAdmin
-          .from('users')
-          .select('id, email')
-          .eq('supabase_auth_id', sub)
-          .single();
-        if (appUser) return { id: appUser.id, email: appUser.email };
-      }
-    }
-  }
-  return null;
+export interface VerifiedIdentity {
+  /** Our `users.id`. */
+  id: string;
+  email: string;
 }
 
 /**
- * Like authenticate but never rejects — sets req.user if a valid token is
- * present, otherwise just calls next(). Used on public endpoints that return
- * extra group-scoped content for logged-in users.
+ * Verify a Supabase access token and resolve it to an app user, creating the
+ * `users` row on first sign-in.
+ *
+ * Exported so the Socket.IO handshake authenticates through exactly the same
+ * path as HTTP — previously the socket layer only understood the old custom
+ * JWTs and silently rejected everyone else.
+ */
+export async function verifyAccessToken(token: string): Promise<VerifiedIdentity | null> {
+  if (!token) return null;
+
+  try {
+    // getUser() validates the token signature and expiry against Supabase.
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !data?.user) return null;
+
+    const authUser = data.user;
+    const email = (authUser.email ?? '').trim().toLowerCase();
+    if (!authUser.id || !email) return null;
+
+    const appUser = await authService.findOrCreateUserFromSupabaseAuth(authUser.id, email);
+    return { id: appUser.id, email: appUser.email };
+  } catch (err) {
+    logger.error('Token verification failed:', err);
+    return null;
+  }
+}
+
+function bearerToken(req: Request): string | null {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return null;
+  return header.substring(7).trim() || null;
+}
+
+/**
+ * Sets req.user when a valid token is present, but never rejects. Used on
+ * public endpoints that return extra group-scoped content to signed-in users.
  */
 export const optionalAuthenticate = async (
   req: AuthRequest,
@@ -62,13 +61,13 @@ export const optionalAuthenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
-    if (authHeader?.startsWith('Bearer ')) {
-      const user = await resolveUser(authHeader.substring(7));
+    const token = bearerToken(req);
+    if (token) {
+      const user = await verifyAccessToken(token);
       if (user) req.user = user;
     }
   } catch {
-    // silently ignore — optional auth never blocks the request
+    // Optional auth never blocks the request.
   }
   next();
 };
@@ -79,35 +78,18 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void | Response> => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = bearerToken(req);
+    if (!token) {
       return sendError(res, 'UNAUTHORIZED', 'Missing or invalid authorization header', 401);
     }
 
-    const token = authHeader.substring(7);
-    const user = await resolveUser(token);
-    if (user) {
-      req.user = user;
-      return next();
+    const user = await verifyAccessToken(token);
+    if (!user) {
+      return sendError(res, 'INVALID_TOKEN', 'Invalid or expired token', 401);
     }
 
-    // Token was valid Supabase auth but no app user row yet (first sign-in)
-    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-      const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
-      });
-      if (authRes.ok) {
-        const authUser = await authRes.json() as { id: string; email?: string };
-        const sub = authUser?.id;
-        const email = (authUser?.email ?? '').trim().toLowerCase();
-        if (sub && email) {
-          req.supabaseAuth = { id: sub, email };
-          return next();
-        }
-      }
-    }
-
-    return sendError(res, 'INVALID_TOKEN', 'Invalid token', 401);
+    req.user = user;
+    return next();
   } catch (error) {
     logger.error('Authentication error:', error);
     return sendError(res, 'INTERNAL_ERROR', 'Authentication failed', 500);

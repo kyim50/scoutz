@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger';
 import { sendError } from '../utils/response';
+import { isAppError } from '../utils/errors';
 
 export const errorHandler = (
   err: any,
@@ -14,6 +15,10 @@ export const errorHandler = (
     url: req.url,
     method: req.method
   });
+
+  if (isAppError(err)) {
+    return sendError(res, err.code, err.message, err.statusCode, err.details);
+  }
 
   // Default error
   let statusCode = 500;
@@ -33,6 +38,11 @@ export const errorHandler = (
     statusCode = err.statusCode;
     code = err.code || code;
     message = err.message || message;
+  }
+
+  // Never leak an internal message to the client on a 500.
+  if (statusCode >= 500) {
+    message = 'An unexpected error occurred';
   }
 
   return sendError(res, code, message, statusCode, err.details);

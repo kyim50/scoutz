@@ -15,6 +15,25 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Credential endpoints (login, signup, refresh, password reset). Tight enough
+// to make online password guessing impractical without hurting real users.
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  message: {
+    success: false,
+    error: {
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many attempts. Please wait a few minutes and try again.'
+    }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Only failed attempts count, so a user logging in repeatedly across devices
+  // is unaffected while brute-force attempts still exhaust the budget.
+  skipSuccessfulRequests: true
+});
+
 // Stricter limiter for AI/search endpoints
 export const searchLimiter = rateLimit({
   windowMs: 60000, // 1 minute

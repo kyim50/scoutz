@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
 import logger from '../utils/logger';
+import { forbidden } from '../utils/errors';
 import pushService from './push.service';
 
 export interface CreateReviewData {
@@ -70,7 +71,7 @@ export class ReviewService {
         .single();
 
       if (!existing || existing.user_id !== userId) {
-        throw new Error('Unauthorized');
+        throw forbidden();
       }
 
       const updates: any = { updated_at: new Date().toISOString() };
@@ -107,7 +108,7 @@ export class ReviewService {
         .single();
 
       if (!existing || existing.user_id !== userId) {
-        throw new Error('Unauthorized');
+        throw forbidden();
       }
 
       const { error } = await supabaseAdmin

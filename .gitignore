@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# Secrets — each project also ignores its own, this is a backstop
+.env
+.env.local
+.env.*.local
+
+# Dependencies / build output
+node_modules/
+dist/
+*.log

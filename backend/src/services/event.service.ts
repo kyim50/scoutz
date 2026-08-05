@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../config/supabase';
 import logger from '../utils/logger';
 import reputationService from './reputation.service';
 import pushService from './push.service';
+import { AppError, notFound, forbidden, assertUuid } from '../utils/errors';
 
 export interface CreateEventData {
   userId: string;
@@ -66,16 +67,12 @@ export class EventService {
         throw new Error('Failed to create event');
       }
 
-      try {
-        const { data: u } = await supabaseAdmin
-          .from('users')
-          .select('events_created')
-          .eq('id', data.userId)
-          .single();
-        if (u) {
-          await supabaseAdmin.from('users').update({ events_created: (u.events_created || 0) + 1 }).eq('id', data.userId);
-        }
-      } catch (counterError) {
+      // Atomic increment — the previous read-modify-write lost increments when
+      // a user created two events concurrently.
+      const { error: counterError } = await supabaseAdmin.rpc('increment_user_events_created', {
+        uid: data.userId,
+      });
+      if (counterError) {
         logger.error('Failed to increment events_created counter:', counterError);
       }
 
@@ -201,6 +198,11 @@ export class EventService {
 
   async getEventSeries(parentEventId: string) {
     try {
+      // Validated before interpolation: PostgREST `.or()` takes a filter
+      // expression, so an unchecked id containing commas or parentheses would
+      // let a caller rewrite the query.
+      assertUuid(parentEventId);
+
       const { data, error } = await supabaseAdmin
         .from('events')
         .select('*')
@@ -221,13 +223,15 @@ export class EventService {
 
   async updateEventSeries(parentEventId: string, userId: string, updateData: Partial<CreateEventData>) {
     try {
+      assertUuid(parentEventId);
+
       // Check if user owns the parent event
       const parentEvent = await this.getEventById(parentEventId);
       if (!parentEvent) {
-        throw new Error('Event not found');
+        throw notFound('Event');
       }
       if (parentEvent.user_id !== userId) {
-        throw new Error('Unauthorized');
+        throw forbidden();
       }
 
       // Update all future instances
@@ -399,10 +403,10 @@ export class EventService {
       // Check if user owns the event
       const event = await this.getEventById(eventId);
       if (!event) {
-        throw new Error('Event not found');
+        throw notFound('Event');
       }
       if (event.user_id !== userId) {
-        throw new Error('Unauthorized');
+        throw forbidden();
       }
 
       const updates: any = {};
@@ -445,10 +449,10 @@ export class EventService {
       // Check if user owns the event
       const event = await this.getEventById(eventId);
       if (!event) {
-        throw new Error('Event not found');
+        throw notFound('Event');
       }
       if (event.user_id !== userId) {
-        throw new Error('Unauthorized');
+        throw forbidden();
       }
 
       const { error } = await supabaseAdmin
@@ -493,7 +497,7 @@ export class EventService {
     try {
       const event = await this.getEventById(eventId);
       if (!event) {
-        throw new Error('Event not found');
+        throw notFound('Event');
       }
 
       const { error } = await supabaseAdmin
@@ -517,42 +521,29 @@ export class EventService {
 
   async rsvpEvent(eventId: string, userId: string, status: 'interested' | 'going') {
     try {
-      // Check capacity before allowing RSVP
-      const event = await this.getEventById(eventId);
-      if (!event) {
-        throw new Error('Event not found');
-      }
-      
-      if (event.max_attendees && event.current_attendees >= event.max_attendees) {
-        throw new Error('Event is at capacity');
-      }
-
-      const { data, error } = await supabaseAdmin
-        .from('event_attendees')
-        .upsert({
-          event_id: eventId,
-          user_id: userId,
-          status: status
-        })
-        .select()
-        .single();
+      // Capacity check and insert happen inside one locked transaction in the
+      // database. Doing it here in two statements let concurrent RSVPs both
+      // pass the check and overfill the event.
+      const { data, error } = await supabaseAdmin.rpc('rsvp_event', {
+        p_event_id: eventId,
+        p_user_id: userId,
+        p_status: status,
+      });
 
       if (error) {
+        if (error.message?.includes('EVENT_AT_CAPACITY')) {
+          throw new AppError('EVENT_AT_CAPACITY', 'This event is at capacity', 409);
+        }
+        if (error.message?.includes('EVENT_NOT_FOUND')) {
+          throw notFound('Event');
+        }
         logger.error('Error RSVP to event:', error);
-        throw new Error('Failed to RSVP');
+        throw new AppError('RSVP_FAILED', 'Failed to RSVP', 500);
       }
 
-      // Update attendee count
-      await this.updateAttendeeCount(eventId);
-
       // Notify event creator (fire-and-forget)
-      if (status === 'going' && event.user_id && event.user_id !== userId) {
-        pushService.notifyUsers(
-          [event.user_id],
-          'New RSVP',
-          `Someone is going to your event "${event.title}"`,
-          { type: 'rsvp', eventId }
-        ).catch(() => {});
+      if (status === 'going') {
+        void this.notifyCreatorOfRsvp(eventId, userId);
       }
 
       return data;
@@ -562,40 +553,42 @@ export class EventService {
     }
   }
 
-  async cancelRsvp(eventId: string, userId: string) {
+  private async notifyCreatorOfRsvp(eventId: string, actorId: string) {
     try {
-      const { error } = await supabaseAdmin
-        .from('event_attendees')
-        .delete()
-        .eq('event_id', eventId)
-        .eq('user_id', userId);
-
-      if (error) {
-        logger.error('Error canceling RSVP:', error);
-        throw new Error('Failed to cancel RSVP');
-      }
-
-      // Update attendee count
-      await this.updateAttendeeCount(eventId);
-
-      // Notify event creator (fire-and-forget)
-      Promise.resolve(supabaseAdmin
+      const { data: event } = await supabaseAdmin
         .from('events')
         .select('user_id, title')
         .eq('id', eventId)
-        .single()
-      ).then(({ data: event }) => {
-          if (event?.user_id && event.user_id !== userId) {
-            return pushService.notifyUsers(
-              [event.user_id],
-              'RSVP cancelled',
-              `Someone cancelled their RSVP for "${event.title}"`,
-              { type: 'rsvp_cancelled', eventId }
-            );
-          }
-          return;
-        })
-        .catch(() => {});
+        .single();
+
+      if (event?.user_id && event.user_id !== actorId) {
+        await pushService.notifyUsers(
+          [event.user_id],
+          'New RSVP',
+          `Someone is going to your event "${event.title}"`,
+          { type: 'rsvp', eventId }
+        );
+      }
+    } catch {
+      // Push is non-critical — never fail an RSVP because a notification failed.
+    }
+  }
+
+  async cancelRsvp(eventId: string, userId: string) {
+    try {
+      // Delete and recount happen under the same row lock as rsvp_event, so
+      // current_attendees can't drift when RSVPs and cancellations interleave.
+      const { error } = await supabaseAdmin.rpc('cancel_rsvp', {
+        p_event_id: eventId,
+        p_user_id: userId,
+      });
+
+      if (error) {
+        logger.error('Error canceling RSVP:', error);
+        throw new AppError('CANCEL_RSVP_FAILED', 'Failed to cancel RSVP', 500);
+      }
+
+      void this.notifyCreatorOfCancellation(eventId, userId);
 
       return true;
     } catch (error) {
@@ -604,17 +597,25 @@ export class EventService {
     }
   }
 
-  private async updateAttendeeCount(eventId: string) {
-    const { count } = await supabaseAdmin
-      .from('event_attendees')
-      .select('*', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .eq('status', 'going');
+  private async notifyCreatorOfCancellation(eventId: string, actorId: string) {
+    try {
+      const { data: event } = await supabaseAdmin
+        .from('events')
+        .select('user_id, title')
+        .eq('id', eventId)
+        .single();
 
-    await supabaseAdmin
-      .from('events')
-      .update({ current_attendees: count || 0 })
-      .eq('id', eventId);
+      if (event?.user_id && event.user_id !== actorId) {
+        await pushService.notifyUsers(
+          [event.user_id],
+          'RSVP cancelled',
+          `Someone cancelled their RSVP for "${event.title}"`,
+          { type: 'rsvp_cancelled', eventId }
+        );
+      }
+    } catch {
+      // Push is non-critical.
+    }
   }
 }
 

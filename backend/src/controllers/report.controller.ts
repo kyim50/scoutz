@@ -4,6 +4,8 @@ import reportService from '../services/report.service';
 import reportClusterService from '../services/reportCluster.service';
 import { sendSuccess, sendError } from '../utils/response';
 import logger from '../utils/logger';
+import { assertValidCoordinates } from '../utils/coordinates';
+import { isAppError } from '../utils/errors';
 
 export const createReport = async (req: AuthRequest, res: Response) => {
   try {
@@ -18,15 +20,15 @@ export const createReport = async (req: AuthRequest, res: Response) => {
       return sendError(res, 'VALIDATION_ERROR', 'Valid type is required', 400);
     }
 
-    if (typeof lat !== 'number' || typeof lng !== 'number') {
-      return sendError(res, 'VALIDATION_ERROR', 'Latitude and longitude are required', 400);
-    }
+    // Range-checked, not just typeof: NaN and out-of-range values reach PostGIS
+    // as a malformed POINT and store a location no radius search can find.
+    const coords = assertValidCoordinates(lat, lng);
 
     const report = await reportService.createReport(userId, {
       type,
       pinId: pinId || undefined,
-      lat,
-      lng,
+      lat: coords.lat,
+      lng: coords.lng,
       content: content || undefined,
       imageUrl: imageUrl || undefined,
       metadata: metadata || undefined,
@@ -36,8 +38,11 @@ export const createReport = async (req: AuthRequest, res: Response) => {
 
     return sendSuccess(res, report);
   } catch (error: any) {
+    if (isAppError(error)) {
+      return sendError(res, error.code, error.message, error.statusCode);
+    }
     logger.error('Create report error:', error);
-    return sendError(res, 'REPORT_FAILED', error.message || 'Failed to create report', 500);
+    return sendError(res, 'REPORT_FAILED', 'Failed to create report', 500);
   }
 };
 
