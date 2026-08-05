@@ -194,6 +194,58 @@ export function FeedPostSkeleton() {
   );
 }
 
+// ─── PinDetail skeleton (body of the pin detail sheet) ───────────────────────
+
+export function PinDetailSkeleton() {
+  return (
+    <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.md }}>
+      {/* About section */}
+      <View style={{ gap: 6 }}>
+        <SkeletonBox width="25%" height={11} />
+        <SkeletonBox width="90%" height={13} style={{ marginTop: 4 }} />
+        <SkeletonBox width="75%" height={13} />
+      </View>
+
+      {/* Creator row */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs }}>
+        <SkeletonBox width={36} height={36} radius={18} />
+        <View style={{ flex: 1, gap: 5 }}>
+          <SkeletonBox width="40%" height={13} />
+          <SkeletonBox width="28%" height={11} />
+        </View>
+      </View>
+
+      {/* Photos section */}
+      <View style={{ gap: 6 }}>
+        <SkeletonBox width="20%" height={11} />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {[0, 1, 2].map((i) => (
+            <SkeletonBox key={i} width={80} height={80} radius={8} />
+          ))}
+        </View>
+      </View>
+
+      {/* Reviews section */}
+      <View style={{ gap: 6 }}>
+        <SkeletonBox width="22%" height={11} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <SkeletonBox width={32} height={32} radius={6} />
+          <View style={{ flex: 1, gap: 5 }}>
+            <SkeletonBox width="35%" height={11} />
+            <SkeletonBox width="22%" height={10} />
+          </View>
+        </View>
+      </View>
+
+      {/* Reports section */}
+      <View style={{ gap: 6 }}>
+        <SkeletonBox width="20%" height={11} />
+        <SkeletonBox width="55%" height={11} />
+      </View>
+    </View>
+  );
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({

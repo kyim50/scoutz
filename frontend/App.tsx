@@ -9,7 +9,8 @@ import { NavigationContainer, DefaultTheme, DarkTheme, LinkingOptions } from '@r
 // Initialise Mapbox token before any MapView mounts.
 void initMapbox();
 import { Provider as PaperProvider, MD3DarkTheme, MD3LightTheme } from 'react-native-paper';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './src/lib/queryClient';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -22,8 +23,6 @@ import SplashScreen from './src/screens/SplashScreen';
 
 // Keep native splash visible until we're ready to show our animated one
 ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
-
-const queryClient = new QueryClient();
 
 const linking: LinkingOptions<any> = {
   prefixes: ['traverse://', 'https://traverseapp.com'],

@@ -1,6 +1,6 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '../constants/api';
+import { supabase } from '../lib/supabase';
 
 const API_URL = API_BASE_URL;
 
@@ -16,30 +16,30 @@ if (__DEV__) {
   console.log(`[API] baseURL=${API_URL}`);
 }
 
-// Request interceptor to add auth token
+// Attach the current Supabase access token. getSession() refreshes it when it
+// is close to expiry, so requests never go out with a stale token and this
+// module needs no refresh logic of its own.
 api.interceptors.request.use(
   async (config) => {
-    const token = await SecureStore.getItemAsync('authToken');
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor with automatic token refresh
-let isRefreshing = false;
-let failedQueue: { resolve: (value: unknown) => void; reject: (reason?: unknown) => void }[] = [];
+/**
+ * Called when a refresh attempt fails and the session is unrecoverable.
+ * AuthContext registers here so the UI can drop back to the signed-out stack —
+ * otherwise the app sits on authenticated screens with no valid token.
+ */
+let onSessionExpired: (() => void) | null = null;
 
-const processQueue = (error: unknown, token: string | null = null) => {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error);
-    else resolve(token);
-  });
-  failedQueue = [];
+export const setOnSessionExpired = (handler: (() => void) | null) => {
+  onSessionExpired = handler;
 };
 
 api.interceptors.response.use(
@@ -50,53 +50,15 @@ api.interceptors.response.use(
     const isAuthEndpoint =
       requestUrl.includes('/auth/login') ||
       requestUrl.includes('/auth/signup') ||
-      requestUrl.includes('/auth/refresh') ||
-      requestUrl.includes('/auth/magic-link') ||
-      requestUrl.includes('/auth/verify-magic-link') ||
-      requestUrl.includes('/auth/pending-signup');
-    const hadAuthHeader =
-      Boolean(originalRequest?.headers?.Authorization) || Boolean(api.defaults.headers.common.Authorization);
+      requestUrl.includes('/auth/forgot-password');
 
-    if (error.response?.status === 401 && !originalRequest?._retry && !isAuthEndpoint && hadAuthHeader) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        }).then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return api(originalRequest);
-        });
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const refreshToken = await SecureStore.getItemAsync('refreshToken');
-        if (!refreshToken) {
-          processQueue(error, null);
-          return Promise.reject(error);
-        }
-
-        const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-
-        if (data.success && data.data?.token) {
-          await SecureStore.setItemAsync('authToken', data.data.token);
-          if (data.data.refreshToken) {
-            await SecureStore.setItemAsync('refreshToken', data.data.refreshToken);
-          }
-          api.defaults.headers.common.Authorization = `Bearer ${data.data.token}`;
-          processQueue(null, data.data.token);
-          originalRequest.headers.Authorization = `Bearer ${data.data.token}`;
-          return api(originalRequest);
-        }
-        throw new Error('Refresh failed');
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        await SecureStore.deleteItemAsync('authToken');
-        await SecureStore.deleteItemAsync('refreshToken');
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
+    // supabase-js already refreshed the token before this request went out, so
+    // a 401 here means the session is genuinely dead rather than merely stale.
+    // Retrying would just fail again — sign out instead.
+    if (error.response?.status === 401 && !isAuthEndpoint) {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        onSessionExpired?.();
       }
     }
 
@@ -119,6 +81,11 @@ api.interceptors.response.use(
 );
 
 // Auth API
+//
+// Credentials are exchanged through the backend rather than calling Supabase
+// directly from the client, so login-by-username keeps working: the server
+// resolves username -> email internally instead of exposing an endpoint that
+// would let anyone map usernames to email addresses.
 export const authAPI = {
   signup: async (data: { email: string; password: string; name: string; username?: string }) => {
     const response = await api.post('/auth/signup', data);
@@ -130,24 +97,14 @@ export const authAPI = {
     return response.data;
   },
 
-  requestMagicLink: async (email: string) => {
-    const response = await api.post('/auth/magic-link', { email });
+  forgotPassword: async (email: string) => {
+    const response = await api.post('/auth/forgot-password', { email });
     return response.data;
   },
 
-  requestSignupMagicLink: async (data: { email: string; name: string; username?: string }) => {
-    const response = await api.post('/auth/signup-magic-link', data);
-    return response.data;
-  },
-
-  pendingSignup: async (data: { email: string; name: string; username?: string }) => {
-    const response = await api.post('/auth/pending-signup', data);
-    return response.data;
-  },
-
-  verifyMagicLink: async (token: string) => {
-    const response = await api.post('/auth/verify-magic-link', { token });
-    return response.data;
+  isUsernameAvailable: async (username: string): Promise<boolean> => {
+    const response = await api.get('/auth/username-available', { params: { username } });
+    return Boolean(response.data?.data?.available);
   },
 
   getCurrentUser: async () => {
@@ -156,9 +113,8 @@ export const authAPI = {
   },
 
   logout: async () => {
-    await api.post('/auth/logout');
-    await SecureStore.deleteItemAsync('authToken');
-    await SecureStore.deleteItemAsync('refreshToken');
+    // Best-effort: local sign-out must succeed even when the server is down.
+    await api.post('/auth/logout').catch(() => {});
   },
 };
 
@@ -181,6 +137,7 @@ export const reportAPI = {
     imageUrl?: string;
     metadata?: Record<string, unknown>;
     isAnonymous?: boolean;
+    groupId?: string;
   }) => {
     const response = await api.post('/reports', data);
     return response.data;
@@ -222,6 +179,10 @@ export const reportChatAPI = {
     });
     return response.data?.data?.counts ?? {};
   },
+  getMessages: async (reportId: string) => {
+    const response = await api.get(`/report-chats/${reportId}/messages`);
+    return response.data?.data?.messages ?? response.data?.messages ?? [];
+  },
   markAsRead: async (reportId: string) => {
     const response = await api.post(`/report-chats/${reportId}/read`);
     return response.data;
@@ -238,8 +199,41 @@ export const eventChatAPI = {
     return response.data?.data?.counts ?? response.data?.counts ?? {};
   },
 
+  getMessages: async (eventId: string) => {
+    const response = await api.get(`/events/${eventId}/messages`);
+    return response.data?.data?.messages ?? response.data?.messages ?? [];
+  },
+
   markAsRead: async (eventId: string) => {
     const response = await api.post(`/events/${eventId}/read`);
+    return response.data;
+  },
+};
+
+// Event feed API
+export const feedAPI = {
+  getFeed: async (eventId: string) => {
+    const response = await api.get(`/events/${eventId}/feed`);
+    return response.data?.data?.posts ?? response.data?.posts ?? [];
+  },
+
+  createPost: async (eventId: string, data: { content?: string; imageUrl?: string }) => {
+    const response = await api.post(`/events/${eventId}/feed`, data);
+    return response.data;
+  },
+
+  addReaction: async (postId: string, reactionType: string) => {
+    const response = await api.post(`/events/feed/${postId}/reaction`, { reactionType });
+    return response.data;
+  },
+
+  removeReaction: async (postId: string) => {
+    const response = await api.delete(`/events/feed/${postId}/reaction`);
+    return response.data;
+  },
+
+  deletePost: async (postId: string) => {
+    const response = await api.delete(`/events/feed/${postId}`);
     return response.data;
   },
 };
@@ -390,7 +384,10 @@ export const uploadAPI = {
 // User API
 export const userAPI = {
   getProfile: async (userId: string) => {
-    const response = await api.get(`/users/${userId}`);
+    // Streaks are counted in the viewer's local calendar, so the server needs
+    // the time zone to place day boundaries correctly.
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const response = await api.get(`/users/${userId}`, { params: { tz } });
     return response.data;
   },
   

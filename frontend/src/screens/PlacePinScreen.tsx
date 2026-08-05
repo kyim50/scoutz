@@ -276,7 +276,7 @@ export default function PlacePinScreen({ navigation, route }: PlacePinScreenProp
           existing
           config={{
             lightPreset: isDarkMode ? 'night' : 'day',
-            showPointOfInterestLabels: true,
+            showPointOfInterestLabels: 'true',
           }}
         />
         <MapboxGL.Camera

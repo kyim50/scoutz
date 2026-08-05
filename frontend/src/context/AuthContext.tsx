@@ -1,7 +1,8 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import axios from 'axios';
-import { authAPI, userAPI } from '../services/api';
+import { authAPI, userAPI, setOnSessionExpired } from '../services/api';
+import { supabase } from '../lib/supabase';
 
 interface User {
   id: string;
@@ -18,14 +19,17 @@ interface User {
   streak?: number;
 }
 
+interface SignupResult {
+  /** True when the Supabase project requires email confirmation before sign-in. */
+  requiresEmailConfirmation: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (identifier: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string, username?: string) => Promise<void>;
-  requestMagicLink: (email: string) => Promise<void>;
-  requestSignupMagicLink: (email: string, name: string, username?: string) => Promise<void>;
-  verifyMagicLink: (token: string) => Promise<void>;
+  signup: (email: string, password: string, name: string, username?: string) => Promise<SignupResult>;
+  forgotPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -36,126 +40,203 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/** Last known profile, so a cold start without network keeps the user signed in. */
+const CACHED_USER_KEY = 'cachedUser';
+
+async function cacheUser(user: User | null) {
+  if (!user) {
+    await SecureStore.deleteItemAsync(CACHED_USER_KEY).catch(() => {});
+    return;
+  }
+  await SecureStore.setItemAsync(CACHED_USER_KEY, JSON.stringify(user)).catch(() => {});
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  // Guards against a late in-flight profile fetch resurrecting a signed-out user.
+  const signedOutRef = useRef(false);
 
-  useEffect(() => {
-    loadUser();
-    loadAnonymousPref();
+  /** Fetch the app profile for the current Supabase session. */
+  const loadProfile = useCallback(async (): Promise<User | null> => {
+    const response = await authAPI.getCurrentUser();
+    if (!response.success) return null;
+    return response.data as User;
   }, []);
 
-  const loadAnonymousPref = async () => {
-    try {
-      const value = await SecureStore.getItemAsync('anonymousMode');
-      if (value === 'true') setIsAnonymous(true);
-    } catch {
-      // ignore
-    }
-  };
+  useEffect(() => {
+    let cancelled = false;
 
-  const toggleAnonymous = async () => {
-    const next = !isAnonymous;
-    setIsAnonymous(next);
-    try {
-      await SecureStore.setItemAsync('anonymousMode', next ? 'true' : 'false');
-    } catch {
-      // ignore
-    }
-  };
+    const bootstrap = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          await cacheUser(null);
+          return;
+        }
 
-  const loadUser = async () => {
-    try {
-      const token = await SecureStore.getItemAsync('authToken');
-      if (token) {
-        const response = await authAPI.getCurrentUser();
-        if (response.success) setUser(response.data);
+        // Hydrate from cache first so a cold start with no network keeps the
+        // user signed in instead of bouncing them to Welcome.
+        const cached = await SecureStore.getItemAsync(CACHED_USER_KEY).catch(() => null);
+        if (cached && !cancelled) {
+          try {
+            setUser(JSON.parse(cached));
+          } catch {
+            await cacheUser(null);
+          }
+        }
+
+        const profile = await loadProfile();
+        if (profile && !cancelled && !signedOutRef.current) {
+          setUser(profile);
+          await cacheUser(profile);
+        }
+      } catch (error) {
+        // A 401 means the session is genuinely dead. Anything else (offline,
+        // server down) leaves the cached user in place.
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          if (!cancelled) setUser(null);
+          await cacheUser(null);
+        } else {
+          console.warn('Could not refresh profile, using cached session:', error);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading user:', error);
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    bootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadProfile]);
+
+  // Supabase drives session state: a refresh failure or a sign-out on another
+  // device lands here, so React state can never disagree with the real session.
+  useEffect(() => {
+    const { data: subscription } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setUser(null);
+        await cacheUser(null);
+      }
+    });
+
+    return () => subscription.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    setOnSessionExpired(() => {
+      setUser(null);
+      void cacheUser(null);
+    });
+    return () => setOnSessionExpired(null);
+  }, []);
+
+  useEffect(() => {
+    SecureStore.getItemAsync('anonymousMode')
+      .then((value) => {
+        if (value === 'true') setIsAnonymous(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleAnonymous = useCallback(() => {
+    setIsAnonymous((prev) => {
+      const next = !prev;
+      SecureStore.setItemAsync('anonymousMode', next ? 'true' : 'false').catch(() => {});
+      return next;
+    });
+  }, []);
+
+  /** Hand the server-issued Supabase session to supabase-js so it manages refresh. */
+  const adoptSession = async (session: { access_token: string; refresh_token: string }) => {
+    const { error } = await supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+    if (error) throw new Error('Could not start your session. Please try again.');
   };
 
-  const login = async (identifier: string, password: string) => {
+  const login = useCallback(async (identifier: string, password: string) => {
     try {
       const response = await authAPI.login({ identifier, password });
       if (!response.success) throw new Error(response.error?.message || 'Login failed');
-      await SecureStore.setItemAsync('authToken', response.data.token);
-      await SecureStore.setItemAsync('refreshToken', response.data.refreshToken);
-      setUser(response.data.user);
-    } catch (error: any) {
-      if (axios.isAxiosError(error) && error.response?.data?.error?.message) {
-        throw new Error(error.response.data.error.message);
-      }
-      if (axios.isAxiosError(error) && !error.response) {
-        throw new Error('Unable to reach the server. Check internet and try again.');
-      }
-      throw error;
-    }
-  };
 
-  const signup = async (email: string, password: string, name: string, username?: string) => {
+      signedOutRef.current = false;
+      await adoptSession(response.data.session);
+      setUser(response.data.user);
+      await cacheUser(response.data.user);
+    } catch (error) {
+      throw toAuthError(error, 'Login failed');
+    }
+  }, []);
+
+  const signup = useCallback(
+    async (email: string, password: string, name: string, username?: string): Promise<SignupResult> => {
+      try {
+        const response = await authAPI.signup({ email, password, name, username });
+        if (!response.success) throw new Error(response.error?.message || 'Signup failed');
+
+        if (response.data?.requiresEmailConfirmation) {
+          return { requiresEmailConfirmation: true };
+        }
+
+        signedOutRef.current = false;
+        await adoptSession(response.data.session);
+        setUser(response.data.user);
+        await cacheUser(response.data.user);
+        return { requiresEmailConfirmation: false };
+      } catch (error) {
+        throw toAuthError(error, 'Signup failed');
+      }
+    },
+    []
+  );
+
+  const forgotPassword = useCallback(async (email: string) => {
     try {
-      const response = await authAPI.signup({ email, password, name, username });
-      if (!response.success) throw new Error(response.error?.message || 'Signup failed');
-      await SecureStore.setItemAsync('authToken', response.data.token);
-      await SecureStore.setItemAsync('refreshToken', response.data.refreshToken);
-      setUser(response.data.user);
-    } catch (error: any) {
-      if (axios.isAxiosError(error) && error.response?.data?.error?.message) {
-        throw new Error(error.response.data.error.message);
-      }
-      if (axios.isAxiosError(error) && !error.response) {
-        throw new Error('Unable to reach the server. Check internet and try again.');
-      }
-      throw error;
+      await authAPI.forgotPassword(email);
+    } catch (error) {
+      throw toAuthError(error, 'Could not send the reset email');
     }
-  };
+  }, []);
 
-  const requestMagicLink = async (_email: string) => {
-    throw new Error('Magic link is disabled. Use email and password.');
-  };
-
-  const requestSignupMagicLink = async (_email: string, _name: string, _username?: string) => {
-    throw new Error('Magic link is disabled. Use email and password.');
-  };
-
-  const verifyMagicLink = async (_token: string) => {
-    throw new Error('Magic link is disabled.');
-  };
-
-  const logout = async () => {
+  const logout = useCallback(async () => {
+    signedOutRef.current = true;
     try {
       await authAPI.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
     } finally {
+      await supabase.auth.signOut().catch(() => {});
       setUser(null);
-      await SecureStore.deleteItemAsync('authToken').catch(() => {});
-      await SecureStore.deleteItemAsync('refreshToken').catch(() => {});
+      await cacheUser(null);
     }
-  };
+  }, []);
 
-  const deleteAccount = async () => {
-    await userAPI.deleteAccount();
-    setUser(null);
-    await SecureStore.deleteItemAsync('authToken').catch(() => {});
-    await SecureStore.deleteItemAsync('refreshToken').catch(() => {});
-  };
-
-  const refreshUser = async () => {
+  const deleteAccount = useCallback(async () => {
+    signedOutRef.current = true;
     try {
-      const response = await authAPI.getCurrentUser();
-      if (response.success) {
-        setUser(response.data);
+      await userAPI.deleteAccount();
+    } finally {
+      // Clear the session either way: staying signed in with tokens for a
+      // deleted account is worse than surfacing the error.
+      await supabase.auth.signOut().catch(() => {});
+      setUser(null);
+      await cacheUser(null);
+    }
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const profile = await loadProfile();
+      if (profile && !signedOutRef.current) {
+        setUser(profile);
+        await cacheUser(profile);
       }
     } catch (error) {
-      console.error('Error refreshing user:', error);
+      console.warn('Error refreshing user:', error);
     }
-  };
+  }, [loadProfile]);
 
   return (
     <AuthContext.Provider
@@ -164,9 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         login,
         signup,
-        requestMagicLink,
-        requestSignupMagicLink,
-        verifyMagicLink,
+        forgotPassword,
         logout,
         deleteAccount,
         refreshUser,
@@ -179,6 +258,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
+/** Turn an axios failure into something worth showing a user. */
+function toAuthError(error: unknown, fallback: string): Error {
+  if (axios.isAxiosError(error)) {
+    const message = error.response?.data?.error?.message;
+    if (message) return new Error(message);
+    if (!error.response) {
+      return new Error('Unable to reach the server. Check your connection and try again.');
+    }
+  }
+  return error instanceof Error ? error : new Error(fallback);
+}
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

@@ -25,10 +25,19 @@ import MapboxGL from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import BottomSheet, { BottomSheetFlatList, BottomSheetScrollView, useBottomSheetSpringConfigs } from '@gorhom/bottom-sheet';
-import Reanimated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolation } from 'react-native-reanimated';
+import Reanimated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolation, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { spacing, typography, borderRadius, shadows } from '../constants/theme';
 import { MAPBOX_STYLE_STANDARD, MAPBOX_TOKEN } from '../constants/map';
+import {
+  PIN_ICONS,
+  PIN_TYPE_COLORS,
+  EVENT_ICONS,
+  REPORT_ICONS,
+  REPORT_ICON_DEFAULT,
+  ALL_QUICK_ACTIONS,
+  selectQuickActions,
+} from '../constants/mapConfig';
 import { searchAPI, recommendationAPI, pinAPI, eventAPI, savedAPI, reviewAPI, reportAPI, reportChatAPI, eventChatAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -36,6 +45,8 @@ import { useAlert } from '../context/AlertContext';
 import { useArea } from '../context/AreaContext';
 import { useGroup } from '../context/GroupContext';
 import GroupPickerModal from '../components/GroupPickerModal';
+import { useSavedItems } from '../hooks/queries';
+import { useMapData } from '../hooks/useMapData';
 
 const { width, height } = Dimensions.get('window');
 const SHEET_PEEK_BASE = 190;
@@ -51,58 +62,10 @@ const SHEET_INDEX = {
   FULL: 2,
 } as const;
 
-const QUICK_ACTIONS = [
-  { id: 'active_reports', label: 'Active Reports', icon: 'warning-outline' },
-  { id: 'food_open',      label: 'Food Open Now',  icon: 'restaurant-outline' },
-  { id: 'events_today',   label: 'Events Today',   icon: 'calendar-outline' },
-  { id: 'saved',          label: 'Saved Places',   icon: 'bookmark-outline' },
-  { id: 'add_report',     label: 'Add Report',     icon: 'flag-outline' },
-  { id: 'friends',        label: 'Friends Nearby', icon: 'people-outline' },
-];
-
-const PIN_ICONS: { [key: string]: string } = {
-  bathroom: 'water-outline',
-  food: 'restaurant-outline',
-  pharmacy: 'medical-outline',
-  study: 'book-outline',
-  coffee: 'cafe-outline',
-  parking: 'car-outline',
-  safe_walk: 'walk-outline',
-  open_late: 'time-outline',
-  default: 'location-outline',
-};
-
-const PIN_TYPE_COLORS: { [key: string]: string } = {
-  bathroom: '#3B82F6',
-  food: '#F97316',
-  pharmacy: '#EF4444',
-  study: '#8B5CF6',
-  coffee: '#92400E',
-  parking: '#6B7280',
-  safe_walk: '#10B981',
-  open_late: '#F59E0B',
-  default: '#3DDC91',
-};
-
-const EVENT_ICONS: { [key: string]: string } = {
-  social: 'people-outline',
-  academic: 'school-outline',
-  sports: 'fitness-outline',
-  club: 'flag-outline',
-  party: 'beer-outline',
-  music: 'musical-notes-outline',
-  other: 'calendar-outline',
-};
-
-const REPORT_ICONS: { [key: string]: string } = {
-  hazard: 'warning-outline',
-  food_status: 'restaurant-outline',
-  campus_update: 'school-outline',
-  safety: 'shield-outline',
-  accessibility: 'accessibility-outline',
-};
-const REPORT_ICON_DEFAULT = 'flag-outline';
 const MAP_LONG_PRESS_HINT_KEY = 'hasSeenLongPressHint';
+
+/** Pads sub-44pt controls out to the minimum touch target without resizing them. */
+const CONTROL_HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 const PIN_MORE_MENU_WIDTH = 244;
 
 import { isEventLive } from '../utils/eventHelpers';
@@ -117,6 +80,8 @@ import ReportsListModal from '../components/ReportsListModal';
 import ReportChatModal from '../components/ReportChatModal';
 import EventChatModal from '../components/EventChatModal';
 import ShareEventModal from '../components/ShareEventModal';
+import { PinDetailSkeleton, SkeletonBox } from '../components/Skeleton';
+import { ErrorState } from '../components/StateView';
 
 interface MapScreenProps {
   navigation: any;
@@ -224,9 +189,6 @@ const RouteShimmer = memo(({ routeCoordinates }: { routeCoordinates: number[][] 
 export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapScreenProps) {
   const { showAlert, showToast } = useAlert();
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [pins, setPins] = useState<any[]>([]);
-  const [forYouPins, setForYouPins] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [selectedPin, setSelectedPin] = useState<any>(null);
@@ -240,6 +202,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const [distanceToNextTurn, setDistanceToNextTurn] = useState(0);
   const currentStepIndexRef = useRef(0);
   const [isSaved, setIsSaved] = useState(false);
+  const [isPinMetaLoading, setIsPinMetaLoading] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<'idle' | 'submitting' | 'done'>('idle');
   const [verifyChoice, setVerifyChoice] = useState<boolean | null>(null);
   const [averageRating, setAverageRating] = useState(0);
@@ -253,7 +216,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   >(null);
   const [pinReports, setPinReports] = useState<any[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
-  const [reports, setReports] = useState<any[]>([]);
   const [reportModalContext, setReportModalContext] = useState<{
     lat: number;
     lng: number;
@@ -261,10 +223,13 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     pinTitle?: string;
   } | null>(null);
   const [sheetContent, setSheetContent] = useState<SheetContent>('search');
+  const sheetContentRef = useRef<SheetContent>('search');
+  const setSheetContentAndRef = (v: SheetContent) => { sheetContentRef.current = v; setSheetContent(v); };
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [detailSnapOverride, setDetailSnapOverride] = useState<number | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);
+  const sheetIndexRef = useRef(0);
   const [animatingToSheetIndex, setAnimatingToSheetIndex] = useState<number | null>(null);
   const sheetAnimatedIndex = useSharedValue(0);
   const groupFabAnimatedStyle = useAnimatedStyle(() => ({
@@ -275,10 +240,58 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     opacity: interpolate(sheetAnimatedIndex.value, [0, 0.05], [1, 0], Extrapolation.CLAMP),
     pointerEvents: sheetAnimatedIndex.value > 0.01 ? 'none' : 'auto',
   }));
+
+  // Tracks whether quick-action chips should show in collapsed (scroll) layout.
+  // Collapses as soon as the sheet is dragged below the threshold, but re-expands
+  // immediately if the sheet bounces back up — without waiting for a snap to settle.
+  const [chipsCollapsedByDrag, setChipsCollapsedByDrag] = useState(false);
+  useAnimatedReaction(
+    () => sheetAnimatedIndex.value,
+    (current, previous) => {
+      if (previous === null) return;
+      // Collapse chips once the sheet drops below 15% of the first snap interval
+      if (current < 0.15 && previous >= 0.15) {
+        runOnJS(setChipsCollapsedByDrag)(true);
+      }
+      // Re-expand chips as soon as the sheet rises back above 25%
+      if (current > 0.25 && previous <= 0.25) {
+        runOnJS(setChipsCollapsedByDrag)(false);
+      }
+    }
+  );
+
+  // Drive expanded-content visibility directly from the frame-accurate animated
+  // index so fast flings (both up and down) never desync content with position.
+  // Expand as soon as the sheet lifts above ~8% of the first snap interval;
+  // collapse only once it drops back below ~3% to avoid flicker on bounces.
+  const [isSheetAboveCollapsed, setIsSheetAboveCollapsed] = useState(false);
+  const isSheetAboveCollapsedRef = useRef(false);
+  useAnimatedReaction(
+    () => sheetAnimatedIndex.value,
+    (current, previous) => {
+      if (previous === null) return;
+      if (!isSheetAboveCollapsedRef.current && current > 0.08) {
+        isSheetAboveCollapsedRef.current = true;
+        runOnJS(setIsSheetAboveCollapsed)(true);
+      } else if (isSheetAboveCollapsedRef.current && current < 0.03) {
+        isSheetAboveCollapsedRef.current = false;
+        runOnJS(setIsSheetAboveCollapsed)(false);
+      }
+    }
+  );
+
+  // Remembers the sheet state before opening a pin/POI detail so the X button
+  // can restore it instead of always going back to collapsed search.
+  const preDetailSheetState = useRef<{ content: SheetContent; index: number } | null>(null);
+  // Set to true while restoring sheet state so the auto-collapse effect doesn't fight it
+  const isRestoringSheetState = useRef(false);
+  // Tracks the index the sheet is animating toward during a restore, so that
+  // opening a new pin mid-restore saves the correct index rather than 0.
+  const restoringToIndex = useRef<number | null>(null);
+
   const [eventHeaderHeight, setEventHeaderHeight] = useState<number>(96);
   const [isSheetRaisedPreview, setIsSheetRaisedPreview] = useState(false);
   const [feedFilter, setFeedFilter] = useState<string>('all');
-  const [loadingNearby, setLoadingNearby] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedEventData, setSelectedEventData] = useState<any>(null);
   const [eventDetailLoading, setEventDetailLoading] = useState(false);
@@ -288,7 +301,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const [eventReviewCount, setEventReviewCount] = useState(0);
   const [eventRsvpStatus, setEventRsvpStatus] = useState<'going' | null>(null);
   const [eventRsvpLoading, setEventRsvpLoading] = useState(false);
-  const [eventUnreadCounts, setEventUnreadCounts] = useState<Record<string, number>>({});
   const [showEventChat, setShowEventChat] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
@@ -338,6 +350,33 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   }
   const { currentArea, isInCampus, mode, setMode, setLocation } = useArea();
   const { activeGroup } = useGroup();
+
+  // Group scoping: with a group selected the map shows only that group's
+  // content, otherwise only public content.
+  const groupFilter = useCallback(
+    (item: any) => (activeGroup ? item.group_id === activeGroup.id : !item.group_id),
+    [activeGroup]
+  );
+
+  // Nearby pins/events/reports and their loading + error state.
+  const mapData = useMapData({ mode, groupFilter, trackUnread: Boolean(user) });
+  const {
+    pins,
+    setPins,
+    events,
+    setEvents,
+    reports,
+    setReports,
+    forYouPins,
+    eventUnreadCounts,
+    setEventUnreadCounts,
+    loading: loadingNearby,
+    error: nearbyError,
+    getAdaptiveRadius,
+    retry: retryNearby,
+    lastLocation: lastNearbyLoadLocation,
+    lastMode: lastNearbyLoadMode,
+  } = mapData;
 
   const isReportDetailSheet =
     sheetContent === 'detail' &&
@@ -407,15 +446,20 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
 
   const handleSheetChange = useCallback((index: number) => {
     setSheetIndex(index);
+    sheetIndexRef.current = index;
     setAnimatingToSheetIndex(null);
     setIsSheetRaisedPreview(index > SHEET_INDEX.COLLAPSED);
+    // If sheet settled back at an expanded snap, clear any drag-collapse so
+    // chips restore to the grid layout for the next drag interaction.
+    if (index > SHEET_INDEX.COLLAPSED) {
+      setChipsCollapsedByDrag(false);
+    }
   }, []);
-  // Treat the sheet as "expanded" as soon as the drag/animation is heading to
-  // a non-collapsed index, and only as collapsed once it has fully settled.
-  const isSheetExpandedForContent =
-    animatingToSheetIndex != null
-      ? animatingToSheetIndex > SHEET_INDEX.COLLAPSED
-      : sheetIndex > SHEET_INDEX.COLLAPSED || isSheetRaisedPreview;
+  // isSheetAboveCollapsed is driven frame-accurately by the Reanimated shared
+  // value (via useAnimatedReaction above), so fast flings in either direction
+  // can never leave expanded content visible while the sheet is at the collapsed
+  // position, and content starts rendering as soon as the sheet begins to rise.
+  const isSheetExpandedForContent = isSheetAboveCollapsed;
 
   // Inverted nav arrow for right-turn bounce (positive X instead of negative)
   const navArrowAnimRight = navArrowAnim.interpolate({
@@ -424,6 +468,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   });
   useEffect(() => {
     if (isNavigating) return;
+    if (isRestoringSheetState.current) return;
     if (sheetContent === 'search' && !selectedPin && !selectedPoi) {
       safeSnapToIndex(SHEET_INDEX.COLLAPSED);
     }
@@ -2905,18 +2950,31 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   }, [showPinMoreMenu]);
 
   useEffect(() => {
-    if (userLocation) {
-      setLocation(userLocation[1], userLocation[0]);
-      loadAllNearby();
+    if (!userLocation) return;
+    setLocation(userLocation[1], userLocation[0]);
+    const prev = lastNearbyLoadLocation.current;
+    const modeChanged = lastNearbyLoadMode.current !== mode;
+    // Only reload if mode changed or user has moved more than ~100 m
+    if (!modeChanged && prev) {
+      const dLng = (userLocation[0] - prev[0]) * 111320 * Math.cos(prev[1] * Math.PI / 180);
+      const dLat = (userLocation[1] - prev[1]) * 110540;
+      const distanceMeters = Math.sqrt(dLng * dLng + dLat * dLat);
+      if (distanceMeters < 100) return;
     }
+    loadAllNearby();
   }, [userLocation, mode]);
+
+  const userLocationRef = useRef(userLocation);
+  useEffect(() => { userLocationRef.current = userLocation; }, [userLocation]);
 
   useFocusEffect(
     useCallback(() => {
-      if (userLocation) {
+      // Reload on screen focus, but don't re-register this callback on every
+      // GPS tick — use a ref so the dep array stays stable.
+      if (userLocationRef.current) {
         loadAllNearby();
       }
-    }, [userLocation])
+    }, [])
   );
 
   // Real-time pin updates via Socket.IO
@@ -3003,11 +3061,13 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   }, [route?.params?.highlightPinId, pins]);
 
   useEffect(() => {
-    if (!searchQuery.trim() && userLocation && !searching && !currentSearchType) {
+    // Only fire when search state changes — not on every GPS tick.
+    // userLocation is accessed via ref so it doesn't re-trigger this effect.
+    if (!searchQuery.trim() && userLocationRef.current && !searching && !currentSearchType) {
       loadAllNearby();
       setSearchResults([]);
     }
-  }, [searchQuery, userLocation, searching, currentSearchType]);
+  }, [searchQuery, searching, currentSearchType]);
 
   useEffect(() => {
     if (route?.params?.targetLocation && userLocation) {
@@ -3078,26 +3138,58 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
 
   useEffect(() => {
     if (selectedPin && selectedPin.id !== 'temp-event' && !selectedPin.id?.startsWith('report-')) {
+      // Save where we were using refs so values are always current.
+      // Use restoringToIndex if mid-restore so we capture the intended index
+      // rather than the collapsed position the sheet settled at.
+      if (sheetContentRef.current !== 'detail') {
+        preDetailSheetState.current = { content: sheetContentRef.current, index: restoringToIndex.current ?? sheetIndexRef.current };
+      }
       pinContentHeightRef.current = 0;
+      setIsPinMetaLoading(true);
       loadPinMetadata();
       loadPinReports();
-      setSheetContent('detail');
-      safeSnapToIndex(detailSnapOverride ?? SHEET_INDEX.HALF);
+      const targetIndex = detailSnapOverride ?? SHEET_INDEX.HALF;
+      // If snapping to collapsed from an expanded position, snap the sheet first
+      // then switch content after a frame so the old content rides down without
+      // the detail flashing in at the wrong height.
+      if (targetIndex === SHEET_INDEX.COLLAPSED && sheetIndexRef.current !== SHEET_INDEX.COLLAPSED) {
+        safeSnapToIndex(targetIndex);
+        setTimeout(() => { setSheetContentAndRef('detail'); }, 80);
+      } else {
+        setSheetContentAndRef('detail');
+        safeSnapToIndex(targetIndex);
+      }
       setDetailSnapOverride(null);
     } else if (selectedPin) {
+      if (sheetContentRef.current !== 'detail') {
+        preDetailSheetState.current = { content: sheetContentRef.current, index: restoringToIndex.current ?? sheetIndexRef.current };
+      }
       pinContentHeightRef.current = 0;
-      setSheetContent('detail');
-      safeSnapToIndex(detailSnapOverride ?? SHEET_INDEX.HALF);
+      const targetIndex = detailSnapOverride ?? SHEET_INDEX.HALF;
+      if (targetIndex === SHEET_INDEX.COLLAPSED && sheetIndexRef.current !== SHEET_INDEX.COLLAPSED) {
+        safeSnapToIndex(targetIndex);
+        setTimeout(() => { setSheetContentAndRef('detail'); }, 80);
+      } else {
+        setSheetContentAndRef('detail');
+        safeSnapToIndex(targetIndex);
+      }
       setDetailSnapOverride(null);
     } else if (selectedPoi) {
+      if (sheetContentRef.current !== 'detail') {
+        preDetailSheetState.current = { content: sheetContentRef.current, index: restoringToIndex.current ?? sheetIndexRef.current };
+      }
       pinContentHeightRef.current = 0;
       setIsSaved(false);
       setAverageRating(0);
       setReviewCount(0);
       setPinReports([]);
-      setSheetContent('detail');
       // Always open POI detail at the collapsed/peek position (flush to nav bar)
-      safeSnapToIndex(SHEET_INDEX.COLLAPSED);
+      if (sheetIndexRef.current !== SHEET_INDEX.COLLAPSED) {
+        safeSnapToIndex(SHEET_INDEX.COLLAPSED);
+        setTimeout(() => { setSheetContentAndRef('detail'); }, 80);
+      } else {
+        setSheetContentAndRef('detail');
+      }
       setDetailSnapOverride(null);
       if (selectedPoi.coordinates) {
         cameraRef.current?.setCamera({
@@ -3110,9 +3202,30 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       }
     } else {
       setPinReports([]);
-      if (sheetContent === 'detail') {
-        setSheetContent('search');
-        safeSnapToIndex(SHEET_INDEX.COLLAPSED);
+      if (sheetContentRef.current === 'detail') {
+        const prev = preDetailSheetState.current;
+        preDetailSheetState.current = null;
+        if (prev) {
+          isRestoringSheetState.current = true;
+          restoringToIndex.current = prev.index;
+          // Snap the sheet to the restore position first, then switch content
+          // after a short delay so the old detail content rides up smoothly
+          // rather than the new content snapping in at the collapsed position.
+          safeSnapToIndex(prev.index);
+          setTimeout(() => {
+            setSheetContentAndRef(prev.content);
+            // Clear the restore flag after another tick so the auto-collapse
+            // effect (which runs when sheetContent becomes 'search') sees the
+            // flag still set and doesn't snap back to collapsed.
+            setTimeout(() => {
+              isRestoringSheetState.current = false;
+              restoringToIndex.current = null;
+            }, 50);
+          }, 150);
+        } else {
+          setSheetContentAndRef('search');
+          safeSnapToIndex(SHEET_INDEX.COLLAPSED);
+        }
       }
       if (detailSnapOverride != null) setDetailSnapOverride(null);
     }
@@ -3251,10 +3364,12 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
 
   const loadPinMetadata = async () => {
     if (!selectedPin) return;
+    setIsPinMetaLoading(true);
     if (!user) {
       setIsSaved(false);
       setAverageRating(0);
       setReviewCount(0);
+      setIsPinMetaLoading(false);
       return;
     }
     try {
@@ -3281,6 +3396,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       setIsSaved(false);
       setAverageRating(0);
       setReviewCount(0);
+    } finally {
+      setIsPinMetaLoading(false);
     }
   };
 
@@ -3306,98 +3423,49 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     }
   };
 
-  const getAdaptiveRadius = useCallback(
-    (kind: 'pins' | 'events' | 'reports' | 'search', queryText?: string) => {
-      const normalizedQuery = String(queryText || '').toLowerCase();
-      const hasUrgentSignal = /(now|urgent|asap|quick|nearest|closest)/.test(normalizedQuery);
-      const campusBase = {
-        pins: hasUrgentSignal ? 850 : 1100,
-        events: 2500,
-        reports: 900,
-        search: hasUrgentSignal ? 1400 : 1900,
-      };
-      const openBase = {
-        pins: hasUrgentSignal ? 1700 : 2400,
-        events: 5200,
-        reports: 2100,
-        search: hasUrgentSignal ? 2200 : 3000,
-      };
+  // Recomputed hourly rather than per render: the selection depends on the
+  // clock, and a new array identity on every render would defeat memoisation.
+  const [quickActionHour, setQuickActionHour] = useState(() => new Date().getHours());
 
-      const base = mode === 'campus' ? campusBase[kind] : openBase[kind];
-      return base;
-    },
-    [mode]
+  useEffect(() => {
+    const timer = setInterval(() => setQuickActionHour(new Date().getHours()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Cached by React Query, so this is a cheap read after the first fetch.
+  const { data: savedPins = [] } = useSavedItems('pin');
+
+  const contextualQuickActions = useMemo(
+    () =>
+      selectQuickActions({
+        hour: quickActionHour,
+        hasSavedPlaces: savedPins.length > 0,
+        hasActiveReports: reports.length > 0,
+      }),
+    [quickActionHour, savedPins.length, reports.length]
   );
 
-  const loadNearbyPins = async () => {
-    if (!userLocation) return;
-    try {
-      const radius = getAdaptiveRadius('pins');
-      const response = await pinAPI.getNearby(userLocation[1], userLocation[0], radius);
-      if (response.success) {
-        setPins(response.data.pins || []);
-      }
-    } catch (error) {
-      console.error('Error loading pins:', error);
-    }
-  };
+  // Radius selection and the four nearby loaders now live in useMapData, which
+  // also tracks whether the last refresh failed so the sheet can offer a retry.
+  const loadNearbyPins = useCallback(async () => {
+    if (userLocation) await mapData.loadNearbyPins(userLocation).catch(() => {});
+  }, [userLocation, mapData.loadNearbyPins]);
 
-  const loadNearbyEvents = async () => {
-    if (!userLocation) return;
-    try {
-      const radius = getAdaptiveRadius('events');
-      const response = await eventAPI.getUpcoming(userLocation[1], userLocation[0], radius);
-      if (response.success) {
-        const nearbyEvents = response.data.events || [];
-        setEvents(nearbyEvents);
+  const loadNearbyEvents = useCallback(async () => {
+    if (userLocation) await mapData.loadNearbyEvents(userLocation).catch(() => {});
+  }, [userLocation, mapData.loadNearbyEvents]);
 
-        // Fetch unread counts for event chats
-        if (user && nearbyEvents.length > 0) {
-          const ids = nearbyEvents.map((e: any) => e.id).filter(Boolean);
-          eventChatAPI
-            .getUnreadCounts(ids)
-            .then(setEventUnreadCounts)
-            .catch(() => {});
-        } else {
-          setEventUnreadCounts({});
-        }
-      }
-    } catch (error) {
-      console.error('Error loading events:', error);
-    }
-  };
+  const loadNearbyReports = useCallback(async () => {
+    if (userLocation) await mapData.loadNearbyReports(userLocation).catch(() => {});
+  }, [userLocation, mapData.loadNearbyReports]);
 
-  const loadNearbyReports = async () => {
-    if (!userLocation) return;
-    try {
-      const radius = getAdaptiveRadius('reports');
-      const response = await reportAPI.getNearby(userLocation[1], userLocation[0], radius);
-      const loadedReports = response?.data?.reports || response?.reports || [];
-      setReports(Array.isArray(loadedReports) ? loadedReports : []);
-    } catch {
-      setReports([]);
-    }
-  };
+  const loadForYouPins = useCallback(async () => {
+    if (userLocation) await mapData.loadForYouPins(userLocation).catch(() => {});
+  }, [userLocation, mapData.loadForYouPins]);
 
-  const loadForYouPins = async () => {
-    if (!userLocation) return;
-    try {
-      const radius = getAdaptiveRadius('pins');
-      const response = await pinAPI.getForYou(userLocation[1], userLocation[0], radius);
-      if (response.success) {
-        setForYouPins((response.data.pins || []).filter(groupFilter));
-      }
-    } catch {
-      // non-critical — fail silently
-    }
-  };
-
-  const loadAllNearby = async () => {
-    if (!userLocation) return;
-    setLoadingNearby(true);
-    await Promise.all([loadNearbyPins(), loadNearbyEvents(), loadNearbyReports(), loadForYouPins()]);
-    setLoadingNearby(false);
-  };
+  const loadAllNearby = useCallback(async () => {
+    if (userLocation) await mapData.loadAll(userLocation);
+  }, [userLocation, mapData.loadAll]);
 
   const mapPoiCategoryToPinType = (category?: string) => {
     const normalized = (category || '').toLowerCase();
@@ -3674,7 +3742,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         setPins(recommendedPins);
         setEvents(recommendedEvents);
         setSearchResults(mappedResults);
-        setSheetContent('results');
+        setSheetContentAndRef('results');
       safeSnapToIndex(SHEET_INDEX.HALF);
 
         if (mappedResults.length > 0) {
@@ -3704,7 +3772,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           setEvents(response.data.results.events || []);
           const allResults = [...(response.data.results.pins || []), ...(response.data.results.events || [])];
           setSearchResults(allResults);
-          setSheetContent('results');
+          setSheetContentAndRef('results');
           safeSnapToIndex(SHEET_INDEX.HALF);
           if (response.data.results.pins?.length > 0) {
             const firstPin = response.data.results.pins[0];
@@ -3756,7 +3824,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           return age < 24 * 60 * 60 * 1000;
         });
         setSearchResults(recentReports);
-        setSheetContent('results');
+        setSheetContentAndRef('results');
         safeSnapToIndex(SHEET_INDEX.HALF);
       } else if (type === 'food_open') {
         const response = await searchAPI.searchPins({
@@ -3769,7 +3837,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           const results = response.data.pins || [];
           setPins(results);
           setSearchResults(results);
-          setSheetContent('results');
+          setSheetContentAndRef('results');
           safeSnapToIndex(SHEET_INDEX.HALF);
         }
       } else if (type === 'events_today') {
@@ -3783,7 +3851,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           });
           setEvents(todayEvents);
           setSearchResults(todayEvents);
-          setSheetContent('results');
+          setSheetContentAndRef('results');
           safeSnapToIndex(SHEET_INDEX.HALF);
         }
       }
@@ -3818,7 +3886,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
 
   const handleSearchPillPress = () => {
     setIsSearchFocused(true);
-    setSheetContent('search');
+    setSheetContentAndRef('search');
     safeSnapToIndex(SHEET_INDEX.FULL);
     setTimeout(() => searchInputRef.current?.focus(), 150);
   };
@@ -3829,7 +3897,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     setSearchQuery('');
     setCurrentSearchType('');
     setSearchResults([]);
-    setSheetContent('search');
+    setSheetContentAndRef('search');
     safeSnapToIndex(SHEET_INDEX.COLLAPSED);
     if (userLocation) {
       loadAllNearby();
@@ -3906,7 +3974,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       }
       setIsSearchFocused(false);
       Keyboard.dismiss();
-      setSheetContent('search');
+      setSheetContentAndRef('search');
       safeSnapToIndex(SHEET_INDEX.COLLAPSED);
       return;
     }
@@ -3916,7 +3984,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     }
     setIsSearchFocused(false);
     Keyboard.dismiss();
-    setSheetContent('search');
+    setSheetContentAndRef('search');
     safeSnapToIndex(SHEET_INDEX.COLLAPSED);
   };
 
@@ -4356,7 +4424,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     setSelectedEventData(null);
     eventContentHeightRef.current = 0;
     setEventDetailSnapMax(SHEET_EVENT_MAX);
-    setSheetContent('eventDetail');
+    setSheetContentAndRef('eventDetail');
     safeSnapToIndex(SHEET_INDEX.COLLAPSED);
     if (coords) {
       cameraRef.current?.setCamera({
@@ -4385,18 +4453,26 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       setEventReviewCount(eventRating?.count ?? 0);
     } catch {
       showToast('Failed to load event', 'error');
-      setSheetContent('search');
+      setSheetContentAndRef('search');
       safeSnapToIndex(SHEET_INDEX.COLLAPSED);
     } finally {
       setEventDetailLoading(false);
     }
   };
 
+  const closePinDetail = () => {
+    handleRecenter();
+    // preDetailSheetState is read by the selectedPin/selectedPoi effect
+    // when both become null — it restores the previous sheet position.
+    setSelectedPin(null);
+    setSelectedPoi(null);
+  };
+
   const closeEventDetail = () => {
     setSelectedEventId(null);
     setSelectedEventData(null);
     setEventDetailSnapMax(SHEET_EVENT_MAX);
-    setSheetContent('search');
+    setSheetContentAndRef('search');
     setShowEventChat(false);
     setShowShareModal(false);
     safeSnapToIndex(SHEET_INDEX.COLLAPSED);
@@ -4700,11 +4776,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     lat >= CAMPUS_BOUNDS.minLat && lat <= CAMPUS_BOUNDS.maxLat;
 
   // Group filtering — public view shows items with no group_id, group view shows only that group's items
-  const groupFilter = useCallback((item: any) => {
-    if (activeGroup) return item.group_id === activeGroup.id;
-    return !item.group_id;
-  }, [activeGroup]);
-
   // Map filtering: sheet filter chips control what appears on the map
   const mapFilteredPins = useMemo(() => {
     let result = feedFilter === 'all' ? pins
@@ -5086,9 +5157,12 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         <Text style={[styles.areaStatusText, { flexShrink: 0 }]} numberOfLines={1}>{areaStatus.activityText}</Text>
       </View>
 
-      {isSheetExpandedForContent ? (
+      {/* Expanded sheet has room for the full set; the always-visible strip
+          shows only the three that fit the current context, so one of them
+          reads as the obvious next move. */}
+      {isSheetExpandedForContent && !chipsCollapsedByDrag ? (
         <View style={styles.quickActions}>
-          {QUICK_ACTIONS.map((action) => (
+          {ALL_QUICK_ACTIONS.map((action) => (
             <TouchableOpacity
               key={action.id}
               style={styles.quickActionButton}
@@ -5097,6 +5171,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
                 handleQuickAction(action.id);
               }}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
             >
               <Ionicons name={action.icon as any} size={18} color={colors.text} />
               <Text style={styles.quickActionText}>{action.label}</Text>
@@ -5109,8 +5185,9 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           showsHorizontalScrollIndicator={false}
           style={styles.quickActionsScroll}
           contentContainerStyle={{ paddingRight: spacing.md, gap: spacing.sm }}
+          accessibilityLabel="Suggested actions"
         >
-          {QUICK_ACTIONS.map((action) => (
+          {contextualQuickActions.map((action) => (
             <TouchableOpacity
               key={action.id}
               style={styles.quickActionButtonScroll}
@@ -5119,6 +5196,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
                 handleQuickAction(action.id);
               }}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
             >
               <Ionicons name={action.icon as any} size={18} color={colors.text} />
               <Text style={styles.quickActionText}>{action.label}</Text>
@@ -5276,8 +5355,16 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           })}
         </ScrollView>
 
-        {/* Feed items or skeleton */}
-        {loadingNearby ? renderSkeletonFeed() : (() => {
+        {/* Feed items, skeleton, or a recoverable error.
+            A failed load used to leave the feed empty, which reads exactly like
+            "nothing nearby" — the user had no way to tell, and no way to retry. */}
+        {loadingNearby ? renderSkeletonFeed() : nearbyError ? (
+          <ErrorState
+            subject="what's nearby"
+            offline={nearbyError === 'offline'}
+            onRetry={retryNearby}
+          />
+        ) : (() => {
           const renderFeedRow = (item: typeof filteredFeedItems[0], index: number, arr: typeof filteredFeedItems) => {
             const distanceLabel = item.distance != null
               ? item.distance < 1000
@@ -5533,7 +5620,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       <View style={styles.resultsHeader}>
         <View>
           <Text style={styles.resultsTitle}>
-            {QUICK_ACTIONS.find((c) => c.id === currentSearchType)?.label ||
+            {ALL_QUICK_ACTIONS.find((c) => c.id === currentSearchType)?.label ||
               currentSearchType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()) ||
               'Results'} nearby
           </Text>
@@ -5986,13 +6073,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
             </View>
             <TouchableOpacity
               style={styles.detailCloseButton}
-              onPress={() => {
-                handleRecenter();
-                setSelectedPin(null);
-                setSelectedPoi(null);
-                setSheetContent('search');
-                safeSnapToIndex(SHEET_INDEX.COLLAPSED);
-              }}
+              onPress={closePinDetail}
             >
               <Ionicons name="close" size={17} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -6111,13 +6192,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           {/* Close button */}
           <TouchableOpacity
             style={styles.detailCloseButton}
-            onPress={() => {
-              handleRecenter();
-              setSelectedPin(null);
-              setSelectedPoi(null);
-              setSheetContent('search');
-              safeSnapToIndex(SHEET_INDEX.COLLAPSED);
-            }}
+            onPress={closePinDetail}
           >
             <Ionicons name="close" size={17} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -6178,6 +6253,23 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
 
         {/* ── EXPAND DIVIDER — visual cap of the sticky zone ── */}
         {!isReportPin && !isPoiDetail && <View style={styles.detailExpandDivider} />}
+
+        {/* ── COLLAPSED SKELETON — visible in peek state while data loads ── */}
+        {!isReportPin && !isPoiDetail && isPinMetaLoading &&
+          sheetIndex === SHEET_INDEX.COLLAPSED &&
+          (animatingToSheetIndex == null || animatingToSheetIndex === SHEET_INDEX.COLLAPSED) && (
+          <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <SkeletonBox width={36} height={36} radius={18} />
+              <View style={{ flex: 1, gap: 5 }}>
+                <SkeletonBox width="45%" height={12} />
+                <SkeletonBox width="30%" height={10} />
+              </View>
+            </View>
+            <SkeletonBox width="80%" height={11} />
+            <SkeletonBox width="60%" height={11} />
+          </View>
+        )}
         </View>{/* end detailStickyTop */}
 
         {/* ── SCROLLABLE BODY + FOOTER ── */}
@@ -6210,6 +6302,9 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
             ) : null}
           </View>
         )}
+
+        {/* Skeleton while pin metadata/reports are loading */}
+        {!isPoiDetail && !isReportPin && isPinMetaLoading && <PinDetailSkeleton />}
 
         {/* Report detail body */}
         {isReportPin && (
@@ -6296,7 +6391,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         )}
 
         {/* ── ABOUT ── */}
-        {!isReportPin && !isPoiDetail && (
+        {!isReportPin && !isPoiDetail && !isPinMetaLoading && (
           <View style={styles.detailFlatSection}>
             <Text style={styles.detailFlatLabel}>About</Text>
             {detailItem.description ? (
@@ -6308,7 +6403,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         )}
 
         {/* ── LOCATION DETAILS (building / floor / access) ── */}
-        {!isReportPin && !isPoiDetail && (detailItem.building || detailItem.floor || detailItem.access_notes) && (
+        {!isReportPin && !isPoiDetail && !isPinMetaLoading && (detailItem.building || detailItem.floor || detailItem.access_notes) && (
           <View style={[styles.detailFlatSection, styles.detailFlatSectionSpaced]}>
             <Text style={styles.detailFlatLabel}>Location</Text>
             <View style={styles.detailInfoRows}>
@@ -6335,7 +6430,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         )}
 
         {/* ── POSTED BY ── */}
-        {!isReportPin && !isPoiDetail && (
+        {!isReportPin && !isPoiDetail && !isPinMetaLoading && (
           <View style={styles.detailCreatorRow2}>
             <View style={[styles.detailCreatorAvatar2, { backgroundColor: creatorAvatarColor }]}>
               <Text style={styles.detailCreatorAvatarText2}>{creatorInitial || '?'}</Text>
@@ -6352,7 +6447,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         )}
 
         {/* ── VERIFY ── */}
-        {!isReportPin && !isPoiDetail && (
+        {!isReportPin && !isPoiDetail && !isPinMetaLoading && (
           <View style={[styles.detailFlatSection, styles.detailFlatSectionSpaced]}>
             <Text style={styles.detailFlatLabel}>Is this still accurate?</Text>
             {verifyStatus === 'done' ? (
@@ -6396,7 +6491,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         )}
 
         {/* ── PHOTOS ── */}
-        {!isReportPin && !isPoiDetail && (() => {
+        {!isReportPin && !isPoiDetail && !isPinMetaLoading && (() => {
           const photoList = (detailItem.photo_urls || detailItem.photos || []) as string[];
           return (
             <View style={[styles.detailFlatSection, styles.detailFlatSectionSpaced]}>
@@ -6443,7 +6538,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         })()}
 
         {/* ── REVIEWS ── */}
-        {!isReportPin && !isPoiDetail && (
+        {!isReportPin && !isPoiDetail && !isPinMetaLoading && (
           <View style={[styles.detailFlatSection, styles.detailFlatSectionSpaced]}>
             <View style={styles.detailFlatLabelRow}>
               <Text style={[styles.detailFlatLabel, { marginBottom: 0 }]}>Reviews</Text>
@@ -6479,7 +6574,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         )}
 
         {/* ── REPORTS ── */}
-        {!isReportPin && !isPoiDetail && (
+        {!isReportPin && !isPoiDetail && !isPinMetaLoading && (
           <View style={[styles.detailFlatSection, styles.detailFlatSectionSpaced]}>
             <View style={styles.detailFlatLabelRow}>
               <Text style={[styles.detailFlatLabel, { marginBottom: 0 }]}>Reports</Text>
@@ -6836,18 +6931,21 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
 
       {!isNavigating && !previewImageUri && (
         <>
-          {/* Campus mode toggle – top-left */}
+          {/* Campus mode toggle – top-left.
+              These controls are 40pt to sit lightly over the map, so hitSlop
+              brings the touch target up to the 44pt minimum without changing
+              how they look. */}
           <View style={[styles.campusControl, { top: insets.top + 8 }]}>
             <TouchableOpacity
               style={styles.recenterButton}
-              onPress={() => {
-                if (mode === 'campus') {
-                  setMode('open_world');
-                  return;
-                }
-                setMode('campus');
-              }}
+              hitSlop={CONTROL_HIT_SLOP}
+              onPress={() => setMode(mode === 'campus' ? 'open_world' : 'campus')}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={
+                mode === 'campus' ? 'Switch to city view' : 'Switch to campus view'
+              }
+              accessibilityState={{ selected: mode === 'campus' }}
             >
               <Ionicons
                 name={mode === 'campus' ? 'school-outline' : 'compass-outline'}
@@ -6861,8 +6959,11 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           <View style={[styles.glassControls, { top: insets.top + 8 }]}>
             <TouchableOpacity
               style={styles.recenterButton}
+              hitSlop={CONTROL_HIT_SLOP}
               onPress={handleRecenter}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Center the map on your location"
             >
               <Ionicons name="paper-plane" size={18} color={colors.text} />
             </TouchableOpacity>
@@ -6983,11 +7084,13 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         animatedIndex={sheetAnimatedIndex}
         onAnimate={handleSheetAnimate}
         onChange={handleSheetChange}
-        onTouchStart={() => setIsSheetRaisedPreview(true)}
         topInset={insets.top + 60}
         animationConfigs={sheetAnimationConfigs}
       >
         <View
+          // BottomSheet forwards no touch props, so the raised-preview cue is
+          // wired to the content view instead.
+          onTouchStart={() => setIsSheetRaisedPreview(true)}
           style={[
             styles.sheetContentFill,
             sheetContent === 'search'
@@ -7258,8 +7361,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
                 bottom: 0,
                 backgroundColor: activeGroup
                   ? colors.accent
-                  : (isDarkMode ? 'rgba(30,30,30,0.90)' : 'rgba(255,255,255,0.94)'),
-                borderWidth: activeGroup ? 0 : StyleSheet.hairlineWidth,
+                  : (isDarkMode ? 'rgba(24,24,24,0.88)' : 'rgba(255,255,255,0.92)'),
+                borderWidth: activeGroup ? 0 : 1,
                 borderColor: colors.border,
                 zIndex: 1,
               },
@@ -7270,10 +7373,10 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
             <Ionicons
               name={activeGroup ? 'people' : 'globe-outline'}
               size={15}
-              color={activeGroup ? '#fff' : colors.textMuted}
+              color={activeGroup ? '#fff' : colors.text}
             />
             <Text
-              style={[styles.groupFabLabel, { color: activeGroup ? '#fff' : colors.textMuted }]}
+              style={[styles.groupFabLabel, { color: activeGroup ? '#fff' : colors.text }]}
               numberOfLines={1}
             >
               {activeGroup ? activeGroup.name : 'Public'}

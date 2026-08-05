@@ -287,8 +287,19 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
     }
     setLoading(true);
     try {
-      await signup(email.trim(), password, name.trim(), username.trim());
+      const { requiresEmailConfirmation } = await signup(
+        email.trim(),
+        password,
+        name.trim(),
+        username.trim()
+      );
       animateAndClose();
+      if (requiresEmailConfirmation) {
+        showAlert(
+          'Confirm your email',
+          `We sent a confirmation link to ${email.trim()}. Tap it, then log in.`
+        );
+      }
     } catch (error: any) {
       showAlert('Signup Failed', error?.message ?? 'Could not create account. Try again.');
     } finally {

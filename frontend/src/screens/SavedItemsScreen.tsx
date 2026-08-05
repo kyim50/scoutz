@@ -12,8 +12,8 @@ import { CardSkeleton } from '../components/Skeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../constants/theme';
-import { savedAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { useSavedItems, useToggleSaved, isOfflineError } from '../hooks/queries';
+import { ErrorState, EmptyState } from '../components/StateView';
 import { useTheme } from '../context/ThemeContext';
 import { useAlert } from '../context/AlertContext';
 
@@ -40,14 +40,17 @@ interface SavedItemsScreenProps {
 }
 
 export default function SavedItemsScreen({ navigation }: SavedItemsScreenProps) {
-  const { user } = useAuth();
   const { colors } = useTheme();
   const { showToast, showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState<'pins' | 'events'>('pins');
-  const [savedItems, setSavedItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
+
+  // React Query handles loading, error, caching and refetch — this screen used
+  // to hand-roll all four with useState and lost its data on every remount.
+  const itemType = activeTab === 'pins' ? 'pin' : 'event';
+  const { data: savedItems = [], isLoading, isRefetching, isError, error, refetch } =
+    useSavedItems(itemType);
+  const toggleSaved = useToggleSaved();
 
   const s = useMemo(
     () =>
@@ -167,30 +170,6 @@ export default function SavedItemsScreen({ navigation }: SavedItemsScreenProps) 
     [colors]
   );
 
-  useEffect(() => {
-    loadSavedItems();
-  }, [activeTab]);
-
-  const loadSavedItems = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const response = await savedAPI.getSavedItems(activeTab === 'pins' ? 'pin' : 'event');
-      setSavedItems(response.data?.items || []);
-    } catch (error) {
-      console.error('Error loading saved items:', error);
-      showToast('Failed to load saved items', 'error');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    loadSavedItems();
-  };
-
   const handleUnsave = (itemType: 'pin' | 'event', itemId: string) => {
     showAlert('Remove saved item', 'Remove this from your saved list?', [
       { text: 'Cancel', style: 'cancel' },
@@ -199,8 +178,7 @@ export default function SavedItemsScreen({ navigation }: SavedItemsScreenProps) 
         style: 'destructive',
         onPress: async () => {
           try {
-            await savedAPI.unsaveItem(itemType, itemId);
-            setSavedItems((prev) => prev.filter((item) => item.item_id !== itemId));
+            await toggleSaved.mutateAsync({ itemType, itemId, saved: true });
             showToast('Removed from saved.', 'success');
           } catch {
             showToast('Failed to unsave item', 'error');
@@ -320,31 +298,38 @@ export default function SavedItemsScreen({ navigation }: SavedItemsScreenProps) 
         </TouchableOpacity>
       </View>
 
-      {loading ? (
+      {isLoading ? (
         <View>
           {[0, 1, 2, 3, 4].map((i) => (
             <CardSkeleton key={i} lines={2} style={{ marginHorizontal: spacing.md, marginTop: i === 0 ? spacing.md : 0 }} />
           ))}
         </View>
+      ) : isError ? (
+        // Previously a failure showed a toast and an empty list, which reads as
+        // "you have nothing saved". Now it says what happened and offers a retry.
+        <ErrorState
+          subject="your saved items"
+          offline={isOfflineError(error)}
+          onRetry={refetch}
+        />
       ) : (
         <FlatList
           data={savedItems}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={s.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
           ListEmptyComponent={
-            <View style={s.emptyState}>
-              <View style={s.emptyIcon}>
-                <Ionicons name="bookmark-outline" size={28} color={colors.textMuted} />
-              </View>
-              <Text style={s.emptyTitle}>No saved items</Text>
-              <Text style={s.emptySub}>
-                {activeTab === 'pins'
-                  ? 'Save pins to easily find them later!'
-                  : "Save events you're interested in!"}
-              </Text>
-            </View>
+            <EmptyState
+              icon={activeTab === 'pins' ? 'bookmark-outline' : 'calendar-outline'}
+              title={activeTab === 'pins' ? 'No saved places yet' : 'No saved events yet'}
+              body={
+                activeTab === 'pins'
+                  ? 'Tap the bookmark on any place to keep it here.'
+                  : "Save events you're interested in and they'll show up here."}
+              actionLabel="Explore the map"
+              onAction={() => navigation.navigate('Main', { screen: 'Map' })}
+            />
           }
         />
       )}

@@ -126,7 +126,7 @@ export default function AnimatedEventMarker({
     transform: [
       { scale: entranceScale.value },
       { translateY: bobY.value },
-    ],
+    ] as const,
   }));
 
   const styles = useMemo(

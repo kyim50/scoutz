@@ -12,12 +12,9 @@ import {
 import { FeedPostSkeleton } from './Skeleton';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../constants/theme';
-import { API_ORIGIN } from '../constants/api';
+import { feedAPI } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
-import * as SecureStore from 'expo-secure-store';
 import { useAlert } from '../context/AlertContext';
-
-const API_URL = API_ORIGIN;
 
 interface EventFeedProps {
   eventId: string;
@@ -35,6 +32,7 @@ export default function EventFeed({ eventId, currentUserId }: EventFeedProps) {
   const { showToast } = useAlert();
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -43,19 +41,11 @@ export default function EventFeed({ eventId, currentUserId }: EventFeedProps) {
 
   const loadFeed = async () => {
     try {
-      const token = await SecureStore.getItemAsync('authToken');
-      const response = await fetch(`${API_URL}/api/events/${eventId}/feed`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setPosts(data.data?.posts || data.posts || []);
-      }
-    } catch (error) {
-      console.error('Error loading feed:', error);
+      setPosts(await feedAPI.getFeed(eventId));
+      setError(null);
+    } catch (err) {
+      console.warn('Error loading feed:', err);
+      setError('Could not load the feed.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -64,24 +54,14 @@ export default function EventFeed({ eventId, currentUserId }: EventFeedProps) {
 
   const handleReaction = async (postId: string, reactionType: string, hasReacted: boolean) => {
     try {
-      const token = await SecureStore.getItemAsync('authToken');
-      const method = hasReacted ? 'DELETE' : 'POST';
-      const url = `${API_URL}/api/events/feed/${postId}/reaction`;
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: hasReacted ? undefined : JSON.stringify({ reactionType }),
-      });
-      
-      if (response.ok) {
-        await loadFeed();
+      if (hasReacted) {
+        await feedAPI.removeReaction(postId);
+      } else {
+        await feedAPI.addReaction(postId, reactionType);
       }
+      await loadFeed();
     } catch (error) {
-      console.error('Error handling reaction:', error);
+      console.warn('Error handling reaction:', error);
       showToast('Failed to update reaction', 'error');
     }
   };

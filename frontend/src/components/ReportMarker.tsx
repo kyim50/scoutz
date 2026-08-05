@@ -86,7 +86,7 @@ export default function ReportMarker({ iconName, type, onPress }: ReportMarkerPr
     transform: [
       { scale: entranceScale.value },
       { translateY: bobY.value },
-    ],
+    ] as const,
   }));
 
   const pulseStyle = useAnimatedStyle(() => ({

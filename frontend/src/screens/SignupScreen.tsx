@@ -179,7 +179,15 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     }
     setLoading(true);
     try {
-      await signup(email, password, name, username);
+      const { requiresEmailConfirmation } = await signup(email, password, name, username);
+      if (requiresEmailConfirmation) {
+        // No session yet — the user has to confirm before they can sign in.
+        showAlert(
+          'Confirm your email',
+          `We sent a confirmation link to ${email.trim()}. Tap it, then log in.`
+        );
+        navigation.navigate('Login');
+      }
     } catch (error: any) {
       showAlert('Signup Failed', error.message || 'Could not create account');
     } finally {

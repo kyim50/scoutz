@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -249,7 +249,7 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
 
     const current = markerLayouts[index % markerLayouts.length];
 
-    const renderMarker = (pos: { top?: string; bottom?: string; left?: string; right?: string }, useAltPulse: boolean) => (
+    const renderMarker = (pos: ViewStyle, useAltPulse: boolean) => (
       <View style={[styles.markerWrap, pos]}>
         <Animated.View
           style={[

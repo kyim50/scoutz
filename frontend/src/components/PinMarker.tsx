@@ -133,7 +133,7 @@ export default function PinMarker({ iconName, type, onPress, variant = 'default'
     transform: [
       { scale: scale.value },
       { translateY: translateY.value },
-    ],
+    ] as const,
   }));
 
   const pulseStyle = useAnimatedStyle(() => ({

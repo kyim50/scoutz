@@ -18,7 +18,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
+  const { login, forgotPassword } = useAuth();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -145,6 +145,15 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         },
         footerText: { ...typography.caption, color: colors.textSecondary },
         signupLink: { ...typography.captionBold, color: colors.text },
+        forgotButton: {
+          alignSelf: 'center',
+          // Keeps the tap target at the 44pt minimum without visually
+          // crowding the primary action above it.
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          marginTop: 4,
+        },
+        forgotText: { ...typography.caption, color: colors.textSecondary },
       }),
     [colors]
   );
@@ -161,6 +170,24 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       showAlert('Login Failed', error.message || 'Invalid email or password');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const email = identifier.trim();
+    if (!email.includes('@')) {
+      showToast('Enter your email address first', 'error');
+      setStep(0);
+      return;
+    }
+    try {
+      await forgotPassword(email);
+      showAlert(
+        'Check your email',
+        'If an account exists for that address, a password reset link is on its way.'
+      );
+    } catch (error: any) {
+      showAlert('Could not send reset email', error.message || 'Please try again.');
     }
   };
 
@@ -257,6 +284,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               onPress={handleNext}
               disabled={loading}
               activeOpacity={0.9}
+              accessibilityRole="button"
+              accessibilityLabel={step === 0 ? 'Continue to password' : 'Log in'}
+              accessibilityState={{ disabled: loading }}
             >
               {loading ? (
                 <ActivityIndicator color={colors.interactiveText} />
@@ -266,6 +296,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                 </Text>
               )}
             </TouchableOpacity>
+
+            {step === 1 && (
+              <TouchableOpacity
+                onPress={handleForgotPassword}
+                style={styles.forgotButton}
+                accessibilityRole="button"
+                accessibilityLabel="Reset your password by email"
+              >
+                <Text style={styles.forgotText}>Forgot your password?</Text>
+              </TouchableOpacity>
+            )}
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don&apos;t have an account? </Text>

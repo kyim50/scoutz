@@ -41,6 +41,12 @@ export type ThemeColors = {
   borderDark: string;
   glass: string;
   glassBorder: string;
+  /** Elevated card surface, sitting above `background`. */
+  card: string;
+  /** Fill for text inputs and inactive segmented controls. */
+  inputBg: string;
+  /** Low-opacity error wash for destructive rows and banners. */
+  errorTint: string;
 };
 
 export const lightColors: ThemeColors = {
@@ -52,10 +58,13 @@ export const lightColors: ThemeColors = {
   accentDark: '#1E9458',
   accentTint: 'rgba(40, 184, 115, 0.09)',
   accentTint30: 'rgba(40, 184, 115, 0.20)',
-  background: '#FFFFFF',
-  backgroundGray: '#F2F2F7',
+  // Elevation ramp. These were all #FFFFFF, so light mode had no depth at all
+  // and every surface distinction relied on shadow alone. Dark mode already had
+  // a proper three-step ramp; this gives light mode the same structure.
+  background: '#F7F8F7',
+  backgroundGray: '#EFF1EF',
   surface: '#FFFFFF',
-  surfaceGray: '#F2F2F7',
+  surfaceGray: '#F2F4F2',
   surfaceHigh: '#FFFFFF',
   interactiveBg: '#28B873',
   interactiveText: '#FFFFFF',
@@ -84,6 +93,9 @@ export const lightColors: ThemeColors = {
   borderDark: '#C7C7CC',
   glass: 'rgba(255, 255, 255, 0.70)',
   glassBorder: 'rgba(0, 0, 0, 0.06)',
+  card: '#FFFFFF',
+  inputBg: '#F2F2F7',
+  errorTint: 'rgba(255, 59, 48, 0.10)',
 };
 
 export const darkColors: ThemeColors = {
@@ -127,6 +139,9 @@ export const darkColors: ThemeColors = {
   borderDark: '#48484A',
   glass: 'rgba(28, 28, 30, 0.65)',
   glassBorder: 'rgba(255, 255, 255, 0.08)',
+  card: '#141414',
+  inputBg: '#1C1C1E',
+  errorTint: 'rgba(255, 69, 58, 0.15)',
 };
 
 /** @deprecated Import via `useTheme()` instead — this is always light-mode values. */
@@ -189,6 +204,12 @@ export const typography = {
     fontSize: 18,
     fontWeight: '600' as const,
     lineHeight: 26,
+  },
+
+  subtitle: {
+    fontSize: 15,
+    fontWeight: '400' as const,
+    lineHeight: 22,
   },
 
   body: {
