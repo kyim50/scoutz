@@ -51,6 +51,12 @@ import { useMapData } from '../hooks/useMapData';
 const { width, height } = Dimensions.get('window');
 const SHEET_PEEK_BASE = 190;
 const SHEET_PEEK_DETAIL = 162;
+/**
+ * The POI sheet's peek height assumes a one-line title. `detailTitle2` is
+ * capped at two lines, so a long name can only ever add this much — but it was
+ * enough to push the action row past the snap point and clip the buttons.
+ */
+const POI_TITLE_LINE_HEIGHT = 24;
 const SHEET_HALF = height * 0.78;
 const SHEET_FULL = height * 0.92;
 const SHEET_REPORT_MAX = Math.min(SHEET_HALF, height * 0.60);
@@ -207,6 +213,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const [verifyChoice, setVerifyChoice] = useState<boolean | null>(null);
   const [averageRating, setAverageRating] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
+  /** Lines the POI title actually wrapped to, reported by onTextLayout. */
+  const [poiTitleLines, setPoiTitleLines] = useState(1);
   /** The newest review. The fetch already returns the rows; only the rating was kept. */
   const [latestReview, setLatestReview] = useState<any>(null);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
@@ -387,6 +395,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     typeof selectedPin?.id === 'string' &&
     selectedPin.id.startsWith('report-');
   const sheetPeek = sheetContent === 'detail' ? SHEET_PEEK_DETAIL : SHEET_PEEK_BASE;
+  // Grows by exactly the lines the title wrapped to beyond the first.
+  const poiPeek = SHEET_PEEK_DETAIL + Math.max(0, poiTitleLines - 1) * POI_TITLE_LINE_HEIGHT;
   modeRef.current = mode;
   const isEventDetailSheet = sheetContent === 'eventDetail';
   const isPoiDetailSheet =
@@ -405,10 +415,10 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         : isEventDetailSheet
           ? [sheetPeek, SHEET_HALF]
           : isPoiDetailSheet
-            ? [sheetPeek, SHEET_HALF]
+            ? [poiPeek, SHEET_HALF]
             : [sheetPeek, SHEET_HALF, SHEET_FULL]
     ),
-    [sheetPeek, sheetContent, isReportDetailSheet, isEventDetailSheet, isPoiDetailSheet]
+    [sheetPeek, poiPeek, sheetContent, isReportDetailSheet, isEventDetailSheet, isPoiDetailSheet]
   );
 
   const safeSnapToIndex = useCallback(
@@ -6103,7 +6113,16 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           {/* Header + close */}
           <View style={styles.detailHeader2}>
             <View style={styles.detailHeaderBody}>
-              <Text style={styles.detailTitle2} numberOfLines={2}>{detailItem.title}</Text>
+              <Text
+                style={styles.detailTitle2}
+                numberOfLines={2}
+                onTextLayout={(e) => {
+                  const lines = Math.min(e.nativeEvent.lines.length, 2);
+                  setPoiTitleLines((prev) => (prev === lines ? prev : lines));
+                }}
+              >
+                {detailItem.title}
+              </Text>
             </View>
             <TouchableOpacity
               style={styles.detailCloseButton}
