@@ -859,6 +859,68 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           paddingTop: spacing.lg,
           paddingBottom: spacing.lg,
         },
+        feedEmpty: {
+          alignItems: 'center',
+          paddingVertical: spacing.xl,
+          paddingHorizontal: spacing.lg,
+        },
+        feedEmptyIcon: {
+          width: 60,
+          height: 60,
+          borderRadius: 30,
+          backgroundColor: colors.surfaceGray,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: spacing.md,
+        },
+        feedEmptyTitle: {
+          ...typography.bodySemibold,
+          fontSize: 17,
+          letterSpacing: -0.3,
+          color: colors.text,
+          textAlign: 'center',
+        },
+        feedEmptyBody: {
+          ...typography.bodySmall,
+          fontSize: 13,
+          lineHeight: 19,
+          color: colors.textMuted,
+          textAlign: 'center',
+          marginTop: 6,
+        },
+        feedEmptyBtn: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: spacing.lg,
+          paddingVertical: 11,
+          paddingHorizontal: spacing.lg,
+          borderRadius: borderRadius.round,
+          backgroundColor: colors.interactiveBg,
+        },
+        feedEmptyBtnText: {
+          ...typography.bodySmallSemibold,
+          color: colors.interactiveText,
+        },
+        feedEmptyGhostBtn: {
+          marginTop: spacing.md,
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
+        },
+        feedEmptyGhostText: {
+          ...typography.bodySmallSemibold,
+          color: colors.accent,
+        },
+        feedEmptyHintRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 5,
+          marginTop: spacing.md,
+        },
+        feedEmptyHint: {
+          ...typography.caption,
+          color: colors.textMuted,
+        },
         feedSectionGroup: {
           marginBottom: spacing.md,
         },
@@ -1057,19 +1119,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         nearbyNeedsSub: { ...typography.caption, color: colors.textSecondary, flex: 1 },
 
         // Long-press hint
-        longPressHint: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: spacing.xs,
-          paddingTop: spacing.sm,
-          paddingBottom: spacing.xs,
-        },
-        longPressHintText: {
-          ...typography.caption,
-          color: colors.textMuted,
-          fontSize: 11,
-        },
         pullUpHint: {
           paddingVertical: spacing.sm,
           position: 'relative',
@@ -5517,24 +5566,72 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           };
 
           if (filteredFeedItems.length === 0) {
+            // A filter matched nothing, but there is plenty here otherwise.
             if (nearbyFeedItems.length > 0) {
+              const active = FEED_FILTERS.find((f) => f.id === feedFilter);
               return (
-                <Text style={[styles.feedTime, { textAlign: 'center', paddingVertical: spacing.lg }]}>
-                  No {feedFilter} nearby
-                </Text>
+                <View style={styles.feedEmpty}>
+                  <View style={styles.feedEmptyIcon}>
+                    <Ionicons
+                      name={(active?.icon as any) || 'search-outline'}
+                      size={24}
+                      color={colors.textMuted}
+                    />
+                  </View>
+                  {/* The label, not the id — this read "No safe_walk nearby". */}
+                  <Text style={styles.feedEmptyTitle}>
+                    No {(active?.label || 'results').toLowerCase()} nearby
+                  </Text>
+                  <Text style={styles.feedEmptyBody}>
+                    There&apos;s other stuff around you though.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.feedEmptyGhostBtn}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setFeedFilter('all');
+                    }}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.feedEmptyGhostText}>Show everything</Text>
+                  </TouchableOpacity>
+                </View>
               );
             }
+            // Genuinely nothing mapped here yet.
             return (
-              <View style={{ alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm }}>
-                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.accentTint30, justifyContent: 'center', alignItems: 'center', marginBottom: 4 }}>
+              <View style={styles.feedEmpty}>
+                <View style={[styles.feedEmptyIcon, { backgroundColor: colors.accentTint }]}>
                   <Ionicons name="map-outline" size={26} color={colors.accent} />
                 </View>
-                <Text style={{ ...typography.bodySmallSemibold, color: colors.text, textAlign: 'center' }}>
-                  You're one of the first here
+                <Text style={styles.feedEmptyTitle}>You&apos;re one of the first here</Text>
+                <Text style={styles.feedEmptyBody}>
+                  Nothing has been mapped around you yet. Add a bathroom, a food spot, a good
+                  place to study — anything you would have wanted to know.
                 </Text>
-                <Text style={{ ...typography.caption, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: spacing.lg }}>
-                  Help others discover this area — add a bathroom, food spot, study space, or anything useful.
-                </Text>
+                {/* The old copy asked for help and then offered no way to give
+                    it. This is the same action the dashed row below uses. */}
+                <TouchableOpacity
+                  style={styles.feedEmptyBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                    navigation.navigate('SelectType', {
+                      prefillLocation: userLocation
+                        ? { lat: userLocation[1], lng: userLocation[0] }
+                        : undefined,
+                    });
+                  }}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="add" size={16} color={colors.interactiveText} />
+                  <Text style={styles.feedEmptyBtnText}>Add the first spot</Text>
+                </TouchableOpacity>
+                <View style={styles.feedEmptyHintRow}>
+                  <Ionicons name="hand-left-outline" size={12} color={colors.textMuted} />
+                  <Text style={styles.feedEmptyHint}>Or long-press anywhere on the map</Text>
+                </View>
               </View>
             );
           }
@@ -5613,14 +5710,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           ));
         })()}
 
-        {/* Long-press hint — only with nothing to show. Under a list of real
-            results it is advice nobody asked for, on every visit, forever. */}
-        {!loadingNearby && nearbyFeedItems.length === 0 && (
-          <View style={styles.longPressHint}>
-            <Ionicons name="hand-left-outline" size={12} color={colors.textMuted} />
-            <Text style={styles.longPressHintText}>Long press the map to drop a pin</Text>
-          </View>
-        )}
       </View>
       )}
       </View>
