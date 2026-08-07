@@ -332,7 +332,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const [mapBearing, setMapBearing] = useState(0);
 
   // ── New feature state ────────────────────────────────────
-  const [weather, setWeather] = useState<{ temp: number; condition: string; ionIcon: string } | null>(null);
   const [happeningNowEvent, setHappeningNowEvent] = useState<any>(null);
   const [bannerVisible, setBannerVisible] = useState(false);
   const bannerAnim = useRef(new Animated.Value(-80)).current;
@@ -569,25 +568,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           ...typography.bodySemibold,
           color: '#fff',
           fontSize: 15,
-        },
-        floatingWeather: {
-          position: 'absolute',
-          right: spacing.md,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-          paddingHorizontal: 10,
-          paddingVertical: 8,
-          borderRadius: borderRadius.sm,
-          backgroundColor: isDarkMode ? 'rgba(24,24,24,0.88)' : 'rgba(255,255,255,0.92)',
-          borderWidth: 1,
-          borderColor: colors.border,
-          ...shadows.md,
-        },
-        floatingWeatherText: {
-          ...typography.bodySmallSemibold,
-          color: colors.text,
-          fontSize: 12,
         },
         mapLoadingOverlay: {
           position: 'absolute',
@@ -2689,27 +2669,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         evLiveBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#10B98122', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
         evLiveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' },
         evLiveBadgeText: { fontSize: 11, fontWeight: '800', color: '#10B981' },
-        // ── Weather strip ──
-        weatherStrip: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: spacing.md,
-          paddingTop: spacing.md,
-          paddingBottom: spacing.xs,
-          gap: spacing.xs,
-        },
-        weatherText: {
-          ...typography.caption,
-          color: colors.textSecondary,
-          fontWeight: '600',
-          fontSize: 12,
-        },
-        weatherDot: {
-          width: 3,
-          height: 3,
-          borderRadius: 2,
-          backgroundColor: colors.borderDark,
-        },
 
         // ── Live activity pulse ──
         activityBadge: {
@@ -3297,34 +3256,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       if (detailSnapOverride != null) setDetailSnapOverride(null);
     }
   }, [selectedPin, selectedPoi]);
-
-  // ── Weather fetch ────────────────────────────────────────
-  useEffect(() => {
-    if (!userLocation) return;
-    const fetchWeather = async () => {
-      try {
-        const [lng, lat] = userLocation;
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&temperature_unit=celsius`;
-        const res = await fetch(url);
-        const data = await res.json();
-        const code = data?.current_weather?.weathercode ?? 0;
-        const temp = Math.round(data?.current_weather?.temperature ?? 0);
-        let condition = 'Clear';
-        let ionIcon = 'sunny-outline';
-        if (code === 0) { condition = 'Clear'; ionIcon = 'sunny-outline'; }
-        else if (code <= 3) { condition = 'Cloudy'; ionIcon = 'partly-sunny-outline'; }
-        else if (code <= 48) { condition = 'Foggy'; ionIcon = 'cloud-outline'; }
-        else if (code <= 67) { condition = 'Rainy'; ionIcon = 'rainy-outline'; }
-        else if (code <= 77) { condition = 'Snowy'; ionIcon = 'snow-outline'; }
-        else if (code <= 82) { condition = 'Showers'; ionIcon = 'rainy-outline'; }
-        else { condition = 'Stormy'; ionIcon = 'thunderstorm-outline'; }
-        setWeather({ temp, condition, ionIcon });
-      } catch {
-        // silently fail — weather is non-critical
-      }
-    };
-    fetchWeather();
-  }, [userLocation]);
 
   // ── Pulse animation (live activity dot) ──────────────────
   useEffect(() => {
@@ -7251,13 +7182,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         </View>
       )}
 
-
-      {!isNavigating && weather && sheetContent === 'search' && !selectedPin && !selectedPoi && (
-        <View pointerEvents="none" style={[styles.floatingWeather, { bottom: sheetPeek + spacing.sm }]}>
-          <Ionicons name={weather.ionIcon as any} size={14} color={colors.text} />
-          <Text style={styles.floatingWeatherText}>{weather.temp}°C</Text>
-        </View>
-      )}
 
       <BottomSheet
         ref={bottomSheetRef}
