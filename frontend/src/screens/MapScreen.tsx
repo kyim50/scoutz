@@ -51,6 +51,17 @@ import { useMapData } from '../hooks/useMapData';
 const { width, height } = Dimensions.get('window');
 const SHEET_PEEK_BASE = 190;
 const SHEET_PEEK_DETAIL = 162;
+/**
+ * The POI sheet, which sits one title line taller than the pin sheet.
+ *
+ * POI names come from Mapbox and are routinely long — "San Francisco–Oakland
+ * Bay Bridge West Span" — and the title is capped at two lines, so this is the
+ * tallest it can ever be. A fixed height rather than a measured one costs 24pt
+ * of empty space under a short name, which is the cheaper mistake: truncating
+ * to one line would leave a road identified as "San Francisco-Oakland Bay
+ * Bridge W...", and on a POI the name is the whole content.
+ */
+const SHEET_PEEK_POI = SHEET_PEEK_DETAIL + 24;
 const SHEET_HALF = height * 0.78;
 const SHEET_FULL = height * 0.92;
 const SHEET_REPORT_MAX = Math.min(SHEET_HALF, height * 0.60);
@@ -405,7 +416,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         : isEventDetailSheet
           ? [sheetPeek, SHEET_HALF]
           : isPoiDetailSheet
-            ? [sheetPeek, SHEET_HALF]
+            ? [SHEET_PEEK_POI, SHEET_HALF]
             : [sheetPeek, SHEET_HALF, SHEET_FULL]
     ),
     [sheetPeek, sheetContent, isReportDetailSheet, isEventDetailSheet, isPoiDetailSheet]
