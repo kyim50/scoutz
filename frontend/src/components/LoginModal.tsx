@@ -5,19 +5,21 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Platform,
   ActivityIndicator,
   Animated,
   Modal,
   Pressable,
-  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useSheetModal } from '../hooks/useSheetModal';
 import { spacing, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { useTheme } from '../context/ThemeContext';
+
+/** Taller than any keyboard, so the sheet never reveals a gap beneath it. */
+const SHEET_TAIL_HEIGHT = 600;
 
 interface LoginModalProps {
   visible: boolean;
@@ -32,32 +34,23 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const { login } = useAuth();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const backdropAnim = useRef(new Animated.Value(0)).current;
-  const sheetAnim = useRef(new Animated.Value(80)).current;
+  const {
+    backdropOpacity,
+    sheetTranslateY,
+    animateIn,
+    close: animateAndClose,
+    runAfterClose,
+  } = useSheetModal({ visible, onClose });
+
   const identifierInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const focusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const animateIn = () => {
-    backdropAnim.setValue(0);
-    sheetAnim.setValue(80);
-    Animated.parallel([
-      Animated.timing(backdropAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.spring(sheetAnim, { toValue: 0, friction: 9, tension: 70, useNativeDriver: true }),
-    ]).start();
-  };
 
-  const animateAndClose = () => {
-    Animated.parallel([
-      Animated.timing(backdropAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(sheetAnim, { toValue: 80, duration: 200, useNativeDriver: true }),
-    ]).start(() => onClose());
-  };
 
   useEffect(() => {
     if (visible) {
@@ -77,23 +70,6 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
       return () => clearTimeout(t);
     }
   }, [visible, step]);
-
-  // Move sheet up by keyboard height so it sits flush with the keyboard (no gap)
-  useEffect(() => {
-    if (!visible) return;
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardOffset(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardOffset(0);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [visible, keyboardOffset]);
 
 
   const styles = useMemo(
@@ -244,51 +220,33 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
     }, 380);
   };
 
-  const sheetTranslateY = sheetAnim;
-
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onShow={handleShow}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onShow={handleShow}
+      onDismiss={runAfterClose}
+    >
       <View style={{ flex: 1 }}>
         {/* Dim overlay — absoluteFill, pointer-events none so touches pass through */}
         <Animated.View
           pointerEvents="none"
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropAnim },
+            { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
           ]}
         />
 
-        {/* Fill the area behind the keyboard with surface color so there is no
-            visual "hole" around the keyboard edges on iOS. */}
-        {keyboardOffset > 0 && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              // Slightly taller than the keyboard height so we overlap
-              // its rounded top edges and avoid any visible gap.
-              height: keyboardOffset + insets.bottom + 8,
-              backgroundColor: colors.surface,
-            }}
-          />
-        )}
-
         {/* Flexible dismiss area above the sheet */}
-        <Pressable style={{ flex: 1 }} onPress={animateAndClose} />
+        <Pressable style={{ flex: 1 }} onPress={() => animateAndClose()} />
 
-        {/* Sheet container anchored to the bottom; keyboardOffset raises the sheet
-            by the keyboard height so its bottom sits flush with the keyboard. */}
+        {/* Anchored to the bottom and moved entirely by transform — see
+            SignupModal for the full reasoning. */}
         <Animated.View
           style={[
-            {
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: keyboardOffset,
-            },
+            { position: 'absolute', left: 0, right: 0, bottom: 0 },
             { transform: [{ translateY: sheetTranslateY }] },
           ]}
         >
@@ -374,6 +332,12 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
               </View>
             </View>
           </View>
+
+          {/* Rides with the sheet to cover the space the keyboard vacates. */}
+          <View
+            pointerEvents="none"
+            style={{ height: SHEET_TAIL_HEIGHT, backgroundColor: colors.surface }}
+          />
         </Animated.View>
       </View>
     </Modal>

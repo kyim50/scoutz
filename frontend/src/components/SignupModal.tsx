@@ -5,22 +5,23 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Platform,
   ActivityIndicator,
   Animated,
   Modal,
   Pressable,
-  Dimensions,
-  Keyboard,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useUsernameAvailability } from '../hooks/useUsernameAvailability';
+import { useSheetModal } from '../hooks/useSheetModal';
 import { spacing, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { useTheme } from '../context/ThemeContext';
+
+/** Taller than any keyboard, so the sheet never reveals a gap beneath it. */
+const SHEET_TAIL_HEIGHT = 600;
 
 interface SignupModalProps {
   visible: boolean;
@@ -38,61 +39,26 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<any>();
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const { signup } = useAuth();
   const usernameCheck = useUsernameAvailability(username);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const backdropAnim = useRef(new Animated.Value(0)).current;
-  const sheetAnim = useRef(new Animated.Value(80)).current;
+  const {
+    backdropOpacity,
+    sheetTranslateY,
+    animateIn,
+    close: animateAndClose,
+    runAfterClose,
+  } = useSheetModal({ visible, onClose });
+
   const emailInputRef = useRef<TextInput>(null);
   const nameInputRef = useRef<TextInput>(null);
   const usernameInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const focusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const animateIn = () => {
-    backdropAnim.setValue(0);
-    sheetAnim.setValue(80);
-    Animated.parallel([
-      Animated.timing(backdropAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.spring(sheetAnim, { toValue: 0, friction: 9, tension: 70, useNativeDriver: true }),
-    ]).start();
-  };
-
   const inputRefs = [emailInputRef, nameInputRef, usernameInputRef, passwordInputRef];
-
-  /**
-   * Work queued to run once this modal is fully gone.
-   *
-   * Presenting an alert while this modal is still dismissing puts two native
-   * modals on screen at once, which on iOS leaves the app looking frozen —
-   * the sheet disappears but an invisible modal keeps swallowing every touch.
-   */
-  const afterCloseRef = useRef<(() => void) | null>(null);
-
-  const runAfterClose = () => {
-    const fn = afterCloseRef.current;
-    afterCloseRef.current = null;
-    fn?.();
-  };
-
-  const animateAndClose = (after?: () => void) => {
-    // Guarded because this is also used directly as an onPress handler, which
-    // would otherwise hand us a touch event to "call" after dismissal.
-    afterCloseRef.current = typeof after === 'function' ? after : null;
-    Animated.parallel([
-      Animated.timing(backdropAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(sheetAnim, { toValue: 80, duration: 200, useNativeDriver: true }),
-    ]).start(() => {
-      onClose();
-      // iOS fires Modal.onDismiss once the native modal is actually gone, which
-      // is the only reliable "safe to present another" signal. Android has no
-      // such window, so run it here instead.
-      if (Platform.OS !== 'ios') runAfterClose();
-    });
-  };
 
   useEffect(() => {
     if (visible) {
@@ -115,22 +81,6 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
     }
   }, [visible, step]);
 
-  // Move sheet up by keyboard height so it sits flush with the keyboard (no gap)
-  useEffect(() => {
-    if (!visible) return;
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardOffset(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardOffset(0);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [visible, keyboardOffset]);
 
 
   const styles = useMemo(
@@ -397,8 +347,6 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
     }, 380);
   };
 
-  const sheetTranslateY = sheetAnim;
-
   return (
     <Modal
       visible={visible}
@@ -414,41 +362,21 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
           pointerEvents="none"
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropAnim },
+            { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
           ]}
         />
-
-        {/* Fill the area behind the keyboard with surface color so there is no
-            visual "hole" around the keyboard edges on iOS. */}
-        {keyboardOffset > 0 && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              // Slightly taller than the keyboard height so we overlap
-              // its rounded top edges and avoid any visible gap.
-              height: keyboardOffset + insets.bottom + 8,
-              backgroundColor: colors.surface,
-            }}
-          />
-        )}
 
         {/* Flexible dismiss area above the sheet */}
         <Pressable style={{ flex: 1 }} onPress={() => animateAndClose()} />
 
-        {/* Sheet container anchored to the bottom; keyboardOffset raises the sheet
-            by the keyboard height so its bottom sits flush with the keyboard. */}
+        {/* Anchored to the bottom and moved entirely by transform: the entry
+            offset and the keyboard height are composed into one translateY, so
+            both run on the native driver instead of re-laying-out the sheet.
+            The tail below fills the area the keyboard vacates, which avoids
+            animating `height` on every keyboard frame. */}
         <Animated.View
           style={[
-            {
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: keyboardOffset,
-            },
+            { position: 'absolute', left: 0, right: 0, bottom: 0 },
             { transform: [{ translateY: sheetTranslateY }] },
           ]}
         >
@@ -597,6 +525,16 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
               </View>
             </View>
           </View>
+
+          {/* Rides with the sheet to cover the space the keyboard leaves as it
+              retracts. A fixed height means no layout work per frame. */}
+          <View
+            pointerEvents="none"
+            style={{
+              height: SHEET_TAIL_HEIGHT,
+              backgroundColor: colors.surface,
+            }}
+          />
         </Animated.View>
       </View>
     </Modal>
