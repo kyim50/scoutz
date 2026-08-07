@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import SelectableChip from '../components/SelectableChip';
+import LocationThumbnail from '../components/LocationThumbnail';
 import { useAlert } from '../context/AlertContext';
 import { useGroup } from '../context/GroupContext';
 import { pinAPI, uploadAPI } from '../services/api';
@@ -87,6 +88,12 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
         scrollView: { flex: 1, paddingHorizontal: spacing.md },
 
         section: { marginBottom: spacing.lg },
+        charCount: {
+          ...typography.caption,
+          color: colors.textMuted,
+          textAlign: 'right',
+          marginTop: spacing.xs,
+        },
         groupHeader: {
           marginTop: spacing.xs,
           marginBottom: spacing.md,
@@ -317,6 +324,13 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
           <Text style={s.groupSub}>Everyone sees this on the map</Text>
         </View>
 
+        {/* The point was chosen two screens ago and not seen since. */}
+        {location && (
+          <View style={s.section}>
+            <LocationThumbnail lat={location.lat} lng={location.lng} />
+          </View>
+        )}
+
         <View style={s.section}>
           <Text style={s.label}>Type</Text>
           <View style={s.typeRow}>
@@ -353,6 +367,11 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
             onChangeText={setTitle}
             maxLength={80}
           />
+          {title.length > 60 && (
+            // Only near the limit: a counter sitting at 0/80 from the start is
+            // noise on a field almost nobody fills.
+            <Text style={s.charCount}>{title.length}/80</Text>
+          )}
         </View>
 
         <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.md }} />

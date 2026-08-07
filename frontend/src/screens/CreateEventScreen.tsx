@@ -394,6 +394,19 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
           width: 48,
         },
 
+        groupHeader: {
+          marginTop: spacing.xs,
+          marginBottom: spacing.md,
+          gap: 2,
+        },
+        groupHeaderFirst: { marginTop: 0 },
+        groupTitle: { ...typography.bodySemibold, color: colors.text, fontSize: 15 },
+        groupSub: { ...typography.caption, color: colors.textMuted },
+        groupDivider: {
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: colors.border,
+          marginBottom: spacing.lg,
+        },
         durationRow: {
           flexDirection: 'row',
           gap: spacing.xs,
@@ -647,6 +660,11 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
 
         <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
 
+        <View style={[s.groupHeader, s.groupHeaderFirst]}>
+          <Text style={s.groupTitle}>What and when</Text>
+          <Text style={s.groupSub}>People need this to decide whether to come</Text>
+        </View>
+
         <View style={s.section}>
           <Text style={s.label}>Title</Text>
           <TextInput
@@ -876,8 +894,14 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
 
         <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
 
+        <View style={s.groupDivider} />
+        <View style={s.groupHeader}>
+          <Text style={s.groupTitle}>Details</Text>
+          <Text style={s.groupSub}>All optional — add what you know</Text>
+        </View>
+
         <View style={s.section}>
-          <Text style={s.label}>Venue (optional)</Text>
+          <Text style={s.label}>Venue</Text>
           <TextInput
             style={s.input}
             placeholder="e.g., Main Library, Room 204"
@@ -890,7 +914,7 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
         <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
 
         <View style={s.section}>
-          <Text style={s.label}>Max attendees (optional)</Text>
+          <Text style={s.label}>Max attendees</Text>
           <TextInput
             style={s.input}
             placeholder="Leave blank for unlimited"

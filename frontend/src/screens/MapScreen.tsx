@@ -6025,6 +6025,31 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const renderDetailContent = () => {
     const detailItem = selectedPin || selectedPoi;
     if (!detailItem) return null;
+
+    /**
+     * Distance and walk time. The API supplies distance_meters only when the
+     * item came from a nearby search, so opening a pin any other way showed
+     * nothing — and it never carried a walk time, which is the part people
+     * actually judge "is it worth going" on.
+     *
+     * 80 m/min matches the estimate the recommendation service uses, so the
+     * two never disagree about the same place.
+     */
+    const detailProximity = (() => {
+      let metres: number | null =
+        typeof detailItem.distance_meters === 'number' ? detailItem.distance_meters : null;
+
+      if (metres == null && userLocation) {
+        const coords = getCoordinatesFromPin(detailItem);
+        if (coords) {
+          metres = haversineDistance(userLocation[0], userLocation[1], coords[0], coords[1]);
+        }
+      }
+      if (metres == null) return null;
+
+      const label = metres >= 1000 ? `${(metres / 1000).toFixed(1)} km` : `${Math.round(metres)} m`;
+      return { label, minutes: Math.max(1, Math.round(metres / 80)) };
+    })();
     const isPoiDetail = !!selectedPoi && (!selectedPin || detailItem.id === selectedPoi.id);
     const isReportPin = !isPoiDetail && selectedPin?.id?.startsWith('report-');
     const variant = isPoiDetail ? 'default' : getPinVariant(detailItem);
@@ -6200,14 +6225,16 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
                 <View style={[styles.detailTypePill, { backgroundColor: pinTypeColor + '16' }]}>
                   <Text style={[styles.detailTypePillText, { color: pinTypeColor }]}>{displayTypeLabel}</Text>
                 </View>
-                {detailItem.distance_meters != null && (
+                {detailProximity && (
                   <>
                     <Text style={styles.detailMetaDot}>·</Text>
-                    <Text style={styles.detailMetaMuted}>
-                      {detailItem.distance_meters >= 1000
-                        ? `${(detailItem.distance_meters / 1000).toFixed(1)} km`
-                        : `${Math.round(detailItem.distance_meters)} m`}
-                    </Text>
+                    <View style={styles.detailMetaChip}>
+                      <Ionicons name="walk-outline" size={11} color={colors.textSecondary} />
+                      <Text style={styles.detailMetaStrong}>
+                        {detailProximity.minutes} min
+                      </Text>
+                      <Text style={styles.detailMetaMuted}>· {detailProximity.label}</Text>
+                    </View>
                   </>
                 )}
               </View>
