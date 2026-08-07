@@ -180,6 +180,19 @@ export default function ItemReviewsScreen({ navigation, route }: ItemReviewsScre
     return { counts, total };
   }, [reviews]);
 
+  /**
+   * The backend upserts on (user, item), so posting again replaces whatever
+   * was there. The button said "Write a review" either way, which meant a
+   * second visit quietly destroyed the first review from a blank form.
+   */
+  const myReview = useMemo(
+    () =>
+      user?.id
+        ? reviews.find((r) => r.user_id === user.id || r.user?.id === user.id)
+        : undefined,
+    [reviews, user?.id]
+  );
+
   const photoReviewCount = useMemo(
     () => reviews.filter((r) => r.photos?.length > 0).length,
     [reviews]
@@ -792,13 +805,26 @@ export default function ItemReviewsScreen({ navigation, route }: ItemReviewsScre
       <View style={[s.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <TouchableOpacity
           style={s.writeButton}
-          onPress={() => navigation.navigate('CreateReview', { itemType, itemId, itemTitle })}
+          onPress={() =>
+            navigation.navigate('CreateReview', {
+              itemType,
+              itemId,
+              itemTitle,
+              existingReview: myReview,
+            })
+          }
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Write a review"
+          accessibilityLabel={myReview ? 'Edit your review' : 'Write a review'}
         >
-          <Ionicons name="create-outline" size={18} color={colors.interactiveText} />
-          <Text style={s.writeButtonText}>Write a review</Text>
+          <Ionicons
+            name={myReview ? 'pencil' : 'create-outline'}
+            size={18}
+            color={colors.interactiveText}
+          />
+          <Text style={s.writeButtonText}>
+            {myReview ? 'Edit your review' : 'Write a review'}
+          </Text>
         </TouchableOpacity>
       </View>
 

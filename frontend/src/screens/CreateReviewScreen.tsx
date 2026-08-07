@@ -29,6 +29,8 @@ interface CreateReviewScreenProps {
       itemType: 'pin' | 'event';
       itemId: string;
       itemTitle: string;
+      /** Present when the user already reviewed this item — see below. */
+      existingReview?: { rating: number; comment?: string; photos?: string[] };
     };
   };
 }
@@ -52,11 +54,14 @@ const RATING_PROMPTS = [
 
 export default function CreateReviewScreen({ navigation, route }: CreateReviewScreenProps) {
   const { showToast } = useAlert();
-  const { itemType, itemId, itemTitle } = route.params;
+  const { itemType, itemId, itemTitle, existingReview } = route.params;
   const { colors } = useTheme();
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
-  const [photos, setPhotos] = useState<string[]>([]);
+  // createReview upserts on (user, item), so arriving here a second time
+  // replaces the previous review. Opening blank meant that replacement was
+  // silent — you could not see what you were about to overwrite.
+  const [rating, setRating] = useState(existingReview?.rating ?? 0);
+  const [comment, setComment] = useState(existingReview?.comment ?? '');
+  const [photos, setPhotos] = useState<string[]>(existingReview?.photos ?? []);
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -199,15 +204,23 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
   const canSubmit = rating > 0 && !loading;
 
   const handleClose = () => {
-    const hasChanges = rating > 0 || comment.trim() || photos.length > 0;
+    const hasChanges = existingReview
+      ? rating !== existingReview.rating ||
+        comment.trim() !== (existingReview.comment ?? '').trim() ||
+        photos.length !== (existingReview.photos ?? []).length
+      : rating > 0 || comment.trim().length > 0 || photos.length > 0;
     if (!hasChanges) {
       navigation.goBack();
       return;
     }
-    Alert.alert('Discard review?', 'What you have written will be lost.', [
-      { text: 'Keep editing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
-    ]);
+    Alert.alert(
+      existingReview ? 'Discard changes?' : 'Discard review?',
+      existingReview ? 'Your review will stay as it was.' : 'What you have written will be lost.',
+      [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
+      ]
+    );
   };
 
   const handleSubmit = async () => {
@@ -219,6 +232,13 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
     try {
       const photoUrls: string[] = [];
       for (const photoUri of photos) {
+        // Photos carried over from an existing review are already hosted;
+        // pushing them back through the uploader would fetch and re-store a
+        // remote URL on every edit.
+        if (/^https?:\/\//.test(photoUri)) {
+          photoUrls.push(photoUri);
+          continue;
+        }
         try {
           const uploadResult = await uploadAPI.uploadImage(photoUri);
           photoUrls.push(uploadResult.mainUrl);
@@ -231,7 +251,7 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
         comment: comment.trim() || undefined,
         photos: photoUrls.length > 0 ? photoUrls : undefined,
       });
-      showToast('Review submitted!', 'success');
+      showToast(existingReview ? 'Review updated!' : 'Review submitted!', 'success');
       navigation.replace('ItemReviews', { itemType, itemId, itemTitle });
     } catch (error: any) {
       const msg =
@@ -255,7 +275,11 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
             {itemTitle}
           </Text>
           <Text style={s.headerSubtitle}>
-            {itemType === 'event' ? 'Event review' : 'Location review'}
+            {existingReview
+              ? 'Editing your review'
+              : itemType === 'event'
+                ? 'Event review'
+                : 'Location review'}
           </Text>
         </View>
         <TouchableOpacity
@@ -276,7 +300,11 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
       >
         <View style={s.hero}>
           <Text style={s.heroQuestion}>
-            {itemType === 'event' ? 'How was the event?' : 'How was it?'}
+            {existingReview
+              ? 'Changed your mind?'
+              : itemType === 'event'
+                ? 'How was the event?'
+                : 'How was it?'}
           </Text>
 
           <RatingStars rating={rating} onChange={setRating} />
@@ -379,7 +407,7 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
                 color={canSubmit ? colors.interactiveText : colors.textMuted}
               />
               <Text style={[s.submitButtonText, !canSubmit && s.submitButtonTextDisabled]}>
-                Submit review
+                {existingReview ? 'Update review' : 'Submit review'}
               </Text>
             </>
           )}
