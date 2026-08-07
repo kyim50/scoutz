@@ -16,7 +16,7 @@ import { useTheme } from '../context/ThemeContext';
 
 interface ConfirmEmailStepProps {
   email: string;
-  /** Re-runs signup to send another confirmation email. */
+  /** Re-runs signup so Supabase issues another confirmation email. */
   onResend: () => Promise<void>;
   onBackToLogin: () => void;
 }
@@ -24,18 +24,21 @@ interface ConfirmEmailStepProps {
 /** How long before the resend button becomes available again. */
 const RESEND_COOLDOWN_S = 30;
 
+/** Diameter of the pulsing halo and the icon it sits behind. */
+const HALO_SIZE = 104;
+const ICON_SIZE = 72;
+
 /**
  * Terminal step of signup when the project requires email confirmation.
  *
- * The account exists but has no session yet, so there is nothing to navigate
- * to — the user has to leave for their inbox and come back. This screen is
- * genuinely a waiting state, and it says so: the halo keeps moving to signal
- * the app is still listening, rather than showing a spinner that implies work
- * is happening here.
+ * The account exists but has no session, so there is nothing to navigate to —
+ * the user has to leave for their inbox and come back. This is genuinely a
+ * waiting state and says so: the halo keeps moving to show the app is still
+ * listening, rather than a spinner implying work is happening here.
  *
  * Confirming arrives back as a deep link, which AuthContext turns into a
- * session. This screen does not need to poll or dismiss itself — the navigator
- * switches stacks as soon as the user exists.
+ * session. This screen never polls or dismisses itself — the navigator switches
+ * stacks as soon as the user exists.
  */
 export default function ConfirmEmailStep({
   email,
@@ -51,22 +54,24 @@ export default function ConfirmEmailStep({
   const lift = useSharedValue(0);
 
   useEffect(() => {
-    // Two loops at different periods so the motion never reads as a
-    // mechanical repeat: the halo pushes outward, the envelope drifts.
+    // Expands outward and fades. It is invisible at the end of the cycle, so
+    // the instant reset back to the start is never seen.
     halo.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 1800, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 2000, easing: Easing.out(Easing.quad) }),
         withTiming(0, { duration: 0 })
       ),
       -1,
       false
     );
+    // Offset and on a different period, so the two never lock into a
+    // mechanical repeat.
     lift.value = withDelay(
-      200,
+      300,
       withRepeat(
         withSequence(
-          withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.quad) })
+          withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.quad) })
         ),
         -1,
         true
@@ -87,12 +92,12 @@ export default function ConfirmEmailStep({
   }, [cooldown]);
 
   const haloStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + halo.value * 0.9 }],
-    opacity: (1 - halo.value) * 0.35,
+    transform: [{ scale: 1 + halo.value * 0.75 }],
+    opacity: (1 - halo.value) * 0.28,
   }));
 
   const envelopeStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: lift.value * -6 }],
+    transform: [{ translateY: lift.value * -5 }],
   }));
 
   const handleResend = useCallback(async () => {
@@ -117,41 +122,51 @@ export default function ConfirmEmailStep({
   const s = useMemo(
     () =>
       StyleSheet.create({
-        wrap: { flex: 1, alignItems: 'center', paddingTop: spacing.lg },
-        haloBase: {
-          position: 'absolute',
-          width: 96,
-          height: 96,
-          borderRadius: 48,
-          backgroundColor: colors.accent,
-        },
-        iconWrap: {
-          width: 96,
-          height: 96,
+        // No flex:1 or marginTop:auto — the sheet sizes to its content, so
+        // those collapse instead of distributing space. Rhythm comes from
+        // explicit spacing between groups.
+        wrap: { alignItems: 'center', paddingTop: spacing.md },
+
+        haloWrap: {
+          width: HALO_SIZE,
+          height: HALO_SIZE,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: spacing.lg,
         },
+        halo: {
+          // Pinned to all four edges so it is exactly centred on the icon.
+          // Absolute positioning without insets lays out from the top-left,
+          // which made the pulse expand off-centre.
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: HALO_SIZE / 2,
+          backgroundColor: colors.accent,
+        },
         iconCircle: {
-          width: 76,
-          height: 76,
-          borderRadius: 38,
+          width: ICON_SIZE,
+          height: ICON_SIZE,
+          borderRadius: ICON_SIZE / 2,
           backgroundColor: colors.accentTint,
           alignItems: 'center',
           justifyContent: 'center',
         },
+
         eyebrow: {
           ...typography.labelSmall,
           color: colors.accent,
           letterSpacing: 1.2,
           textTransform: 'uppercase',
-          marginBottom: spacing.xs,
+          marginBottom: spacing.sm,
         },
         title: {
-          fontSize: 28,
-          lineHeight: 34,
+          fontSize: 26,
+          lineHeight: 32,
           fontWeight: '700',
-          letterSpacing: -0.5,
+          letterSpacing: -0.6,
           color: colors.text,
           textAlign: 'center',
           marginBottom: spacing.sm,
@@ -161,15 +176,24 @@ export default function ConfirmEmailStep({
           color: colors.textSecondary,
           textAlign: 'center',
           lineHeight: 21,
-          maxWidth: 300,
+          // Keeps the line length comfortable instead of spanning the sheet.
+          maxWidth: 290,
         },
         email: { color: colors.text, fontWeight: '600' },
-        confirmed: {
-          ...typography.caption,
-          color: colors.success,
+
+        // Reserved height so the layout doesn't shift when this appears.
+        noticeSlot: {
+          height: 20,
+          justifyContent: 'center',
           marginTop: spacing.sm,
         },
-        bottom: { marginTop: 'auto', width: '100%', gap: spacing.xs },
+        notice: { ...typography.caption, color: colors.success, textAlign: 'center' },
+
+        actions: {
+          width: '100%',
+          marginTop: spacing.lg,
+          gap: spacing.sm,
+        },
         primary: {
           height: 52,
           borderRadius: borderRadius.md,
@@ -179,14 +203,21 @@ export default function ConfirmEmailStep({
           flexDirection: 'row',
           gap: 8,
         },
-        primaryText: { fontSize: 17, fontWeight: '700', color: colors.interactiveText },
-        secondary: {
+        primaryText: { fontSize: 17, fontWeight: '600', color: colors.interactiveText },
+        resend: {
           minHeight: 44,
           alignItems: 'center',
           justifyContent: 'center',
         },
-        secondaryText: { ...typography.bodySmallMedium, color: colors.textSecondary },
-        secondaryDisabled: { color: colors.textMuted },
+        resendText: { ...typography.bodySmallMedium, color: colors.text },
+        resendDisabled: { color: colors.textMuted },
+
+        divider: {
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: colors.border,
+          width: '100%',
+          marginTop: spacing.xs,
+        },
         footerRow: {
           flexDirection: 'row',
           justifyContent: 'center',
@@ -201,11 +232,11 @@ export default function ConfirmEmailStep({
 
   return (
     <View style={s.wrap}>
-      <View style={s.iconWrap}>
-        <Reanimated.View style={[s.haloBase, haloStyle]} pointerEvents="none" />
+      <View style={s.haloWrap}>
+        <Reanimated.View style={[s.halo, haloStyle]} pointerEvents="none" />
         <Reanimated.View style={envelopeStyle}>
           <View style={s.iconCircle}>
-            <Ionicons name="mail-outline" size={34} color={colors.accent} />
+            <Ionicons name="mail-outline" size={32} color={colors.accent} />
           </View>
         </Reanimated.View>
       </View>
@@ -217,14 +248,17 @@ export default function ConfirmEmailStep({
         you&apos;ll be signed in automatically.
       </Text>
 
-      {resentOnce && (
-        <Text style={s.confirmed}>Sent again — it can take a minute to arrive.</Text>
-      )}
+      <View style={s.noticeSlot}>
+        {resentOnce ? (
+          <Text style={s.notice}>Sent again — it can take a minute to arrive.</Text>
+        ) : null}
+      </View>
 
-      <View style={s.bottom}>
+      <View style={s.actions}>
         <TouchableOpacity
           style={s.primary}
           onPress={handleOpenMail}
+          activeOpacity={0.9}
           accessibilityRole="button"
           accessibilityLabel="Open your mail app"
         >
@@ -233,7 +267,7 @@ export default function ConfirmEmailStep({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={s.secondary}
+          style={s.resend}
           onPress={handleResend}
           disabled={cooldown > 0 || resending}
           accessibilityRole="button"
@@ -245,11 +279,13 @@ export default function ConfirmEmailStep({
           {resending ? (
             <ActivityIndicator size="small" color={colors.textSecondary} />
           ) : (
-            <Text style={[s.secondaryText, cooldown > 0 && s.secondaryDisabled]}>
+            <Text style={[s.resendText, cooldown > 0 && s.resendDisabled]}>
               {cooldown > 0 ? `Resend in ${cooldown}s` : "Didn't get it? Resend"}
             </Text>
           )}
         </TouchableOpacity>
+
+        <View style={s.divider} />
 
         <View style={s.footerRow}>
           <Text style={s.footerText}>Already confirmed? </Text>
