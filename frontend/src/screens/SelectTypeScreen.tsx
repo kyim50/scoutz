@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography, shadows } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import SelectableChip from '../components/SelectableChip';
 
 function LollipopPin({ color }: { color: string }) {
   const HEAD = 20;
@@ -42,8 +43,8 @@ export default function SelectTypeScreen({ navigation, route }: SelectTypeScreen
       subtitle: 'Mark a place',
       description: 'Bathrooms, study spots, food, charging stations, and more',
       tint: colors.text,
-      tags: ['Bathroom', 'Food', 'Study', 'Charging'],
-      onPress: () => navigation.navigate('PlacePin', prefillLocation ? { prefillLocation } : undefined),
+      tags: [{ label: 'Bathroom', value: 'bathroom' }, { label: 'Food', value: 'food' }, { label: 'Study', value: 'study' }, { label: 'Charging', value: 'charging' }],
+      onPress: (presetType?: string) => navigation.navigate('PlacePin', { ...(prefillLocation ? { prefillLocation } : {}), ...(presetType ? { presetType } : {}) }),
     },
     {
       key: 'event',
@@ -52,8 +53,8 @@ export default function SelectTypeScreen({ navigation, route }: SelectTypeScreen
       subtitle: 'Plan a gathering',
       description: 'Meetups, parties, study groups, and activities near you',
       tint: colors.accent,
-      tags: ['Meetup', 'Party', 'Study group', 'Activity'],
-      onPress: () => navigation.navigate('PlacePin', { forEvent: true, ...(prefillLocation ? { prefillLocation } : {}) }),
+      tags: [{ label: 'Meetup', value: 'social' }, { label: 'Party', value: 'party' }, { label: 'Study group', value: 'academic' }, { label: 'Activity', value: 'sports' }],
+      onPress: (presetType?: string) => navigation.navigate('PlacePin', { forEvent: true, ...(prefillLocation ? { prefillLocation } : {}), ...(presetType ? { presetType } : {}) }),
     },
     {
       key: 'report',
@@ -62,8 +63,8 @@ export default function SelectTypeScreen({ navigation, route }: SelectTypeScreen
       subtitle: 'Flag something',
       description: 'Hazards, safety concerns, campus updates, or general notes',
       tint: colors.warning,
-      tags: ['Hazard', 'Safety', 'Campus', 'General'],
-      onPress: () => navigation.navigate('PlacePin', { forReport: true, ...(prefillLocation ? { prefillLocation } : {}) }),
+      tags: [{ label: 'Hazard', value: 'hazard' }, { label: 'Safety', value: 'safety' }, { label: 'Campus', value: 'campus_update' }, { label: 'General', value: 'general' }],
+      onPress: (presetType?: string) => navigation.navigate('PlacePin', { forReport: true, ...(prefillLocation ? { prefillLocation } : {}), ...(presetType ? { presetType } : {}) }),
     },
   ], [colors, navigation, prefillLocation]);
 
@@ -206,8 +207,12 @@ export default function SelectTypeScreen({ navigation, route }: SelectTypeScreen
             <TouchableOpacity
               key={opt.key}
               style={s.card}
-              onPress={opt.onPress}
+              // Wrapped: bare, the handler would receive the touch event where
+              // it expects a preset type.
+              onPress={() => opt.onPress()}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={`${opt.title} — ${opt.subtitle}`}
             >
               <View style={s.cardTop}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -220,18 +225,23 @@ export default function SelectTypeScreen({ navigation, route }: SelectTypeScreen
                   </View>
                   <Text style={s.cardTitle}>{opt.title}</Text>
                 </View>
-                <View style={s.cardArrow}>
-                  <Ionicons name="arrow-forward" size={15} color={colors.textMuted} />
-                </View>
               </View>
 
               <View style={s.cardBottom}>
                 <Text style={s.cardSubtitle}>{opt.description}</Text>
+                {/* Tappable, not decorative. They looked exactly like the
+                    interactive chips used everywhere else while doing nothing;
+                    now each one skips the type question in the form. */}
                 <View style={s.cardTagRow}>
                   {opt.tags.map((tag) => (
-                    <View key={tag} style={s.cardTag}>
-                      <Text style={s.cardTagText}>{tag}</Text>
-                    </View>
+                    <SelectableChip
+                      key={tag.value}
+                      style={s.cardTag}
+                      onPress={() => opt.onPress(tag.value)}
+                      accessibilityLabel={`${opt.title}: ${tag.label}`}
+                    >
+                      <Text style={s.cardTagText}>{tag.label}</Text>
+                    </SelectableChip>
                   ))}
                 </View>
               </View>

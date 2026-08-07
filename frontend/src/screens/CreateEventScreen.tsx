@@ -39,7 +39,8 @@ interface CreateEventScreenProps {
 
 export default function CreateEventScreen({ navigation, route }: CreateEventScreenProps) {
   const { showToast } = useAlert();
-  const [category, setCategory] = useState('social');
+  // Preselected from the type picker's tag shortcut.
+  const [category, setCategory] = useState<string>(route?.params?.presetType ?? 'social');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -505,6 +506,7 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
         createResponse?.data ||
         null;
 
+      showToast('Event created.', 'success');
       navigation.navigate('Main', {
         screen: 'Map',
         params: createdEvent ? { newEvent: createdEvent, targetEventId: createdEvent.id } : undefined,

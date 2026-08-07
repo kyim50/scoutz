@@ -37,7 +37,9 @@ interface CreatePinScreenProps {
 
 export default function CreatePinScreen({ navigation, route }: CreatePinScreenProps) {
   const { showToast } = useAlert();
-  const [type, setType] = useState('bathroom');
+  // Preselected when the user tapped a tag on the type picker rather than
+  // the card, so the form opens on the kind they already chose.
+  const [type, setType] = useState<string>(route?.params?.presetType ?? 'bathroom');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [building, setBuilding] = useState('');

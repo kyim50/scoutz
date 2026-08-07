@@ -2336,12 +2336,16 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           gap: 6,
           height: 42,
           borderRadius: borderRadius.md,
-          backgroundColor: colors.accent,
+          // Secondary. Filled green here put a second primary on the sheet
+          // competing with Directions, which is the reason people open a pin.
+          backgroundColor: colors.surfaceGray,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
         },
         detailWriteReviewText: {
           fontSize: 14,
           fontWeight: '600' as const,
-          color: '#000000',
+          color: colors.text,
           lineHeight: 18,
         },
         detailInlineActionsRow: {
@@ -6692,7 +6696,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           ]}
         >
           <TouchableOpacity style={styles.detailWriteReviewBtn} onPress={handleWriteReview} activeOpacity={0.82}>
-            <Ionicons name="create-outline" size={15} color="#000000" />
+            <Ionicons name="create-outline" size={15} color={colors.text} />
             <Text style={styles.detailWriteReviewText}>
               {reviewCount > 0 ? 'Write a review' : 'Be the first to review'}
             </Text>

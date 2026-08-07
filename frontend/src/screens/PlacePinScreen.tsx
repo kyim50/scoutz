@@ -250,12 +250,16 @@ export default function PlacePinScreen({ navigation, route }: PlacePinScreenProp
       const location = { lng: centerCoordinate[0], lat: centerCoordinate[1] };
       const isForEvent = route?.params?.forEvent || false;
       const isForReport = route?.params?.forReport || false;
+      // Carried from the type picker, where tapping a tag chooses the kind up
+      // front so the form opens on it instead of asking again.
+      const presetType = route?.params?.presetType;
+
       if (isForReport) {
-        navigation.navigate('CreateReport', { location });
+        navigation.navigate('CreateReport', { location, presetType });
       } else if (isForEvent) {
-        navigation.navigate('CreateEvent', { location });
+        navigation.navigate('CreateEvent', { location, presetType });
       } else {
-        navigation.navigate('CreatePin', { location });
+        navigation.navigate('CreatePin', { location, presetType });
       }
     }
   };

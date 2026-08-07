@@ -147,7 +147,10 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
   const pinId = route?.params?.pinId as string | undefined;
   const pinTitle = route?.params?.pinTitle as string | undefined;
 
-  const [type, setType] = useState<ReportType>('general');
+  // Preselected from the type picker's tag shortcut.
+  const [type, setType] = useState<ReportType>(
+    (route?.params?.presetType as ReportType) ?? 'general'
+  );
   const [subOption, setSubOption] = useState<string>('');
   const [content, setContent] = useState('');
   const [imageUris, setImageUris] = useState<string[]>([]);
