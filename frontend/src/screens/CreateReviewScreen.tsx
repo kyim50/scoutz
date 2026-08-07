@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,8 @@ import { reviewAPI, uploadAPI } from '../services/api';
 import ImagePicker from '../components/ImagePicker';
 import { useTheme } from '../context/ThemeContext';
 import SelectableChip from '../components/SelectableChip';
+import RatingStars, { STAR_GOLD } from '../components/RatingStars';
+import { FormGroup, FormField } from '../components/FormSection';
 import { useAlert } from '../context/AlertContext';
 
 interface CreateReviewScreenProps {
@@ -30,20 +33,14 @@ interface CreateReviewScreenProps {
   };
 }
 
-const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
 
 /**
  * Tapping one appends it to the review text. Most people will not write prose,
  * and a couple of these still produces something another user can act on.
  */
-const REVIEW_PROMPTS = [
-  'Clean',
-  'Quiet',
-  'Busy',
-  'Hard to find',
-  'Well lit',
-  'Free to use',
-];
+const REVIEW_PROMPTS = ['Clean', 'Quiet', 'Busy', 'Hard to find', 'Well lit', 'Free to use'];
+
 const RATING_PROMPTS = [
   '',
   'What went wrong?',
@@ -68,75 +65,93 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.surface },
 
+        // ── Header ── matches the other three create screens, which are all
+        // presented the same way and should not each look like a different app.
+        handleBar: {
+          alignSelf: 'center',
+          width: 40,
+          height: 4,
+          borderRadius: 2,
+          backgroundColor: colors.lightGray,
+          marginTop: spacing.sm,
+          marginBottom: spacing.sm,
+        },
         header: {
           flexDirection: 'row',
           alignItems: 'center',
           paddingHorizontal: spacing.md,
-          paddingVertical: spacing.md,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.borderLight,
+          paddingBottom: spacing.sm,
         },
         closeButton: {
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           borderRadius: borderRadius.round,
           backgroundColor: colors.surfaceGray,
           justifyContent: 'center',
           alignItems: 'center',
         },
-        headerInfo: { flex: 1, alignItems: 'center' },
+        headerInfo: { flex: 1, alignItems: 'center', paddingHorizontal: spacing.sm },
         headerTitle: { ...typography.h5, color: colors.text },
-        headerSubtitle: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
-        headerSpacer: { width: 32 },
+        headerSubtitle: { ...typography.captionMedium, color: colors.textSecondary, marginTop: 1 },
+        headerSpacer: { width: 36, height: 36 },
 
         scrollView: { flex: 1 },
-        scrollContent: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
+        scrollContent: { paddingHorizontal: spacing.md, paddingTop: spacing.lg },
 
-        // ── Rating block ──
-        ratingBlock: {
-          backgroundColor: colors.surfaceGray,
-          borderRadius: borderRadius.lg,
-          paddingVertical: spacing.lg,
-          paddingHorizontal: spacing.lg,
+        // ── Rating hero ──
+        // Unboxed on purpose. The grey card this used to sit in did nothing but
+        // wash out the single most important control on the screen, and it was
+        // the only card here, so it read as a stray element rather than a
+        // deliberate one.
+        hero: { alignItems: 'center', paddingBottom: spacing.xl },
+        heroQuestion: {
+          ...typography.h4,
+          fontSize: 21,
+          letterSpacing: -0.4,
+          color: colors.text,
           marginBottom: spacing.md,
-          alignItems: 'center',
-          gap: spacing.md,
         },
-        ratingPrompt: {
-          ...typography.bodySmallSemibold,
-          color: colors.textSecondary,
-          fontSize: 14,
+        // Fixed height so the word appearing does not shift the form below it.
+        heroLabelSlot: { height: 30, justifyContent: 'center', marginTop: spacing.sm },
+        heroLabel: {
+          ...typography.h4,
+          fontSize: 22,
+          letterSpacing: -0.4,
+          color: STAR_GOLD,
+          textAlign: 'center',
         },
-        starsRow: {
-          flexDirection: 'row',
-          gap: spacing.sm,
-        },
-        starBtn: {
-          padding: spacing.sm,
-        },
-        ratingLabelRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: spacing.xs,
-          height: 24,
-        },
-        ratingLabelText: {
-          ...typography.bodySmallSemibold,
-          color: '#FFB800',
-          fontSize: 14,
-        },
-        ratingRequiredText: {
-          ...typography.caption,
+        heroHint: {
+          ...typography.bodySmall,
           color: colors.textMuted,
+          textAlign: 'center',
         },
 
-        promptRow: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          gap: spacing.xs,
-          marginBottom: spacing.md,
+        // ── Text input ──
+        inputWrapper: {
+          backgroundColor: colors.surfaceGray,
+          borderRadius: borderRadius.md,
+          borderWidth: 1.25,
+          borderColor: colors.border,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.md,
         },
+        input: {
+          ...typography.body,
+          fontSize: 15,
+          lineHeight: 21,
+          color: colors.text,
+          height: 96,
+          textAlignVertical: 'top',
+          padding: 0,
+        },
+        charRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 },
+        charCount: { ...typography.caption, color: colors.textMuted },
+
+        promptRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs + 2 },
         promptChip: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 5,
           paddingVertical: 7,
           paddingHorizontal: spacing.sm + 2,
           borderRadius: borderRadius.round,
@@ -144,62 +159,56 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
           borderWidth: 1,
           borderColor: 'transparent',
         },
-        promptChipUsed: {
-          backgroundColor: colors.accentTint,
-          borderColor: colors.accent,
-        },
+        promptChipUsed: { backgroundColor: colors.accentTint, borderColor: colors.accent },
         promptChipText: { ...typography.bodySmallMedium, color: colors.textSecondary },
         promptChipTextUsed: { color: colors.accent },
 
-        // ── Section label ──
-        sectionLabel: {
-          ...typography.bodySmallSemibold,
-          color: colors.text,
-          fontSize: 14,
+        // ── Footer ── pinned, like every other create screen. It used to scroll
+        // with the content, so on a long review the submit button was off screen.
+        footer: {
+          paddingHorizontal: spacing.md,
+          paddingTop: spacing.md,
+          backgroundColor: colors.surface,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+        },
+        submitHint: {
+          ...typography.caption,
+          color: colors.textMuted,
+          textAlign: 'center',
           marginBottom: spacing.sm,
         },
-
-        // ── Text input ──
-        inputWrapper: {
-          backgroundColor: colors.surfaceGray,
-          borderRadius: borderRadius.lg,
-          padding: spacing.md,
-          marginBottom: spacing.xs,
-        },
-        input: {
-          ...typography.body,
-          fontSize: 16,
-          lineHeight: 20,
-          color: colors.text,
-          height: 100,
-          textAlignVertical: 'top',
-          padding: 0,
-        },
-        charRow: {
-          flexDirection: 'row',
-          justifyContent: 'flex-end',
-          marginBottom: spacing.md,
-        },
-        charCount: { ...typography.caption, color: colors.textMuted, fontSize: 11 },
-
-        // ── Photos section ──
-        photosSection: { marginBottom: spacing.lg },
-
-        // ── Submit button (inside scroll) ──
         submitButton: {
           backgroundColor: colors.interactiveBg,
-          borderRadius: borderRadius.md,
-          paddingVertical: 16,
+          borderRadius: borderRadius.sm,
+          paddingVertical: spacing.md,
           alignItems: 'center',
           flexDirection: 'row',
           justifyContent: 'center',
           gap: spacing.xs,
         },
-        submitButtonDisabled: { opacity: 0.35 },
+        // A real disabled fill rather than 35% opacity on white, which produced
+        // a light grey slab that still read as the primary action.
+        submitButtonDisabled: { backgroundColor: colors.surfaceGray },
         submitButtonText: { ...typography.button, color: colors.interactiveText },
+        submitButtonTextDisabled: { color: colors.textMuted },
       }),
     [colors]
   );
+
+  const canSubmit = rating > 0 && !loading;
+
+  const handleClose = () => {
+    const hasChanges = rating > 0 || comment.trim() || photos.length > 0;
+    if (!hasChanges) {
+      navigation.goBack();
+      return;
+    }
+    Alert.alert('Discard review?', 'What you have written will be lost.', [
+      { text: 'Keep editing', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
+    ]);
+  };
 
   const handleSubmit = async () => {
     if (rating === 0) {
@@ -225,7 +234,8 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
       showToast('Review submitted!', 'success');
       navigation.replace('ItemReviews', { itemType, itemId, itemTitle });
     } catch (error: any) {
-      const msg = error?.response?.data?.error?.message || error?.message || 'Failed to submit review';
+      const msg =
+        error?.response?.data?.error?.message || error?.message || 'Failed to submit review';
       showToast(msg, 'error');
     } finally {
       setLoading(false);
@@ -233,95 +243,110 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
   };
 
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      {/* Header */}
+    <KeyboardAvoidingView
+      style={s.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={s.handleBar} />
       <View style={s.header}>
         <View style={s.headerSpacer} />
         <View style={s.headerInfo}>
-          <Text style={s.headerTitle} numberOfLines={1}>{itemTitle}</Text>
-          <Text style={s.headerSubtitle}>{itemType === 'event' ? 'Event review' : 'Location review'}</Text>
+          <Text style={s.headerTitle} numberOfLines={1}>
+            {itemTitle}
+          </Text>
+          <Text style={s.headerSubtitle}>
+            {itemType === 'event' ? 'Event review' : 'Location review'}
+          </Text>
         </View>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.closeButton}>
+        <TouchableOpacity
+          onPress={handleClose}
+          style={s.closeButton}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <Ionicons name="close" size={18} color={colors.text} />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         style={s.scrollView}
-        contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + spacing.lg }]}
+        contentContainerStyle={[s.scrollContent, { paddingBottom: spacing.xxl }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Rating block ── */}
-        <View style={s.ratingBlock}>
-          <Text style={s.ratingPrompt}>
-            {rating === 0 ? 'Tap a star to rate' : RATING_PROMPTS[rating]}
+        <View style={s.hero}>
+          <Text style={s.heroQuestion}>
+            {itemType === 'event' ? 'How was the event?' : 'How was it?'}
           </Text>
-          <View style={s.starsRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity
-                key={star}
-                onPress={() => setRating(star)}
-                style={s.starBtn}
-                activeOpacity={0.6}
-              >
-                <Ionicons
-                  name={star <= rating ? 'star' : 'star-outline'}
-                  size={32}
-                  color={star <= rating ? '#FFB800' : colors.mediumGray}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={s.ratingLabelRow}>
-            <Text style={rating > 0 ? s.ratingLabelText : s.ratingRequiredText}>
-              {rating > 0 ? RATING_LABELS[rating] : 'A rating is required'}
-            </Text>
+
+          <RatingStars rating={rating} onChange={setRating} />
+
+          <View style={s.heroLabelSlot}>
+            {rating > 0 ? (
+              <Text style={s.heroLabel}>{RATING_LABELS[rating]}</Text>
+            ) : (
+              // Not "a rating is required" — nothing has gone wrong yet, and
+              // leading with a failed validation is a poor way to open.
+              <Text style={s.heroHint}>Tap a star</Text>
+            )}
           </View>
         </View>
 
-        {/* ── Review text ── */}
-        <Text style={s.sectionLabel}>Your review</Text>
-        <View style={s.inputWrapper}>
-          <TextInput
-            style={s.input}
-            placeholder={rating > 0 ? RATING_PROMPTS[rating] : 'Share your experience...'}
-            placeholderTextColor={colors.textMuted}
-            value={comment}
-            onChangeText={setComment}
-            multiline
-            maxLength={500}
-          />
-        </View>
-        <View style={s.charRow}>
-          <Text style={s.charCount}>{comment.length}/500</Text>
-        </View>
+        <FormGroup
+          title="Your review"
+          subtitle="A sentence is plenty. Say what the next person should know."
+          first
+        >
+          <View>
+            <View style={s.inputWrapper}>
+              <TextInput
+                style={s.input}
+                // The question tracks the rating, so a one-star review is asked
+                // what went wrong and a five-star one what made it great.
+                placeholder={rating > 0 ? RATING_PROMPTS[rating] : 'Share your experience...'}
+                placeholderTextColor={colors.textMuted}
+                value={comment}
+                onChangeText={setComment}
+                multiline
+                maxLength={500}
+              />
+            </View>
+            {comment.length > 400 && (
+              <View style={s.charRow}>
+                <Text style={s.charCount}>{comment.length}/500</Text>
+              </View>
+            )}
+          </View>
 
-        {/* Shortcuts into the text field rather than separate tags, so the
-            review stays one editable thing the user can still reword. */}
-        <View style={s.promptRow}>
-          {REVIEW_PROMPTS.map((prompt) => {
-            const used = comment.toLowerCase().includes(prompt.toLowerCase());
-            return (
-              <SelectableChip
-                key={prompt}
-                selected={used}
-                style={[s.promptChip, used && s.promptChipUsed]}
-                onPress={() => {
-                  if (used) return;
-                  setComment((c) => (c.trim() ? `${c.trim()}. ${prompt}` : prompt));
-                }}
-                accessibilityLabel={`Add "${prompt}" to your review`}
-              >
-                <Text style={[s.promptChipText, used && s.promptChipTextUsed]}>{prompt}</Text>
-              </SelectableChip>
-            );
-          })}
-        </View>
+          {/* These had no label at all, so a row of words simply appeared under
+              the text box with nothing to say what tapping one would do. */}
+          <FormField label="Quick add" hint="Tap to drop a phrase into your review.">
+            <View style={s.promptRow}>
+              {REVIEW_PROMPTS.map((prompt) => {
+                const used = comment.toLowerCase().includes(prompt.toLowerCase());
+                return (
+                  <SelectableChip
+                    key={prompt}
+                    selected={used}
+                    style={[s.promptChip, used && s.promptChipUsed]}
+                    onPress={() => {
+                      if (used) return;
+                      setComment((c) => (c.trim() ? `${c.trim()}. ${prompt}` : prompt));
+                    }}
+                    accessibilityLabel={`Add "${prompt}" to your review`}
+                  >
+                    {used && <Ionicons name="checkmark" size={13} color={colors.accent} />}
+                    <Text style={[s.promptChipText, used && s.promptChipTextUsed]}>{prompt}</Text>
+                  </SelectableChip>
+                );
+              })}
+            </View>
+          </FormField>
+        </FormGroup>
 
-        {/* ── Photos ── */}
-        <View style={s.photosSection}>
-          <Text style={s.sectionLabel}>Add photos</Text>
+        <FormGroup title="Photos" subtitle="Up to three. A photo is what makes a review land.">
+          {/* No field label: the ImagePicker's own button already says "Add
+              photos", and the section said it too. */}
           <ImagePicker
             onImagesSelected={setPhotos}
             maxImages={3}
@@ -330,25 +355,36 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
             allowsEditing={true}
             addButtonHeight={100}
           />
-        </View>
+        </FormGroup>
+      </ScrollView>
 
-        {/* ── Submit ── */}
+      <View style={[s.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        {rating === 0 && <Text style={s.submitHint}>Pick a rating to submit.</Text>}
         <TouchableOpacity
-          style={[s.submitButton, (rating === 0 || loading) && s.submitButtonDisabled]}
+          style={[s.submitButton, !canSubmit && s.submitButtonDisabled]}
           onPress={handleSubmit}
-          disabled={rating === 0 || loading}
+          disabled={!canSubmit}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Submit review"
+          accessibilityState={{ disabled: !canSubmit }}
         >
           {loading ? (
             <ActivityIndicator color={colors.interactiveText} />
           ) : (
             <>
-              <Ionicons name="checkmark" size={18} color={colors.interactiveText} />
-              <Text style={s.submitButtonText}>Submit review</Text>
+              <Ionicons
+                name="checkmark"
+                size={18}
+                color={canSubmit ? colors.interactiveText : colors.textMuted}
+              />
+              <Text style={[s.submitButtonText, !canSubmit && s.submitButtonTextDisabled]}>
+                Submit review
+              </Text>
             </>
           )}
         </TouchableOpacity>
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }

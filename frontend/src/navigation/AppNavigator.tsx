@@ -345,7 +345,7 @@ const AppNavigator = () => {
           <Stack.Screen name="SavedItems" component={SavedItemsScreen}
             options={{ cardStyle: { backgroundColor: colors.surface } }} />
           <Stack.Screen name="CreateReview" component={CreateReviewScreen}
-            options={{ presentation: 'modal' }} />
+            options={{ presentation: 'modal', ...modalOptions }} />
           <Stack.Screen name="ItemReviews" component={ItemReviewsScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen}
             options={{ cardStyle: { backgroundColor: colors.surface } }} />
