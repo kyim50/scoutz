@@ -27,14 +27,23 @@ that `apple-app-site-association` needs.
 
 ## Keeping it honest
 
-Every colour in `styles.css` is copied from `frontend/src/constants/theme.ts`
-(the `darkColors` table) and from the per-category tints the app uses for pin
-and report types. The phone in the hero is a CSS rebuild of the real pin sheet,
-down to the white head-and-stick marker from `MapPinMarker.tsx`. If a colour
-changes in the app it should change here too — the point is that someone who
-opens the app after seeing this page recognises it.
+Every colour in `styles.css` comes from `frontend/src/constants/theme.ts` (the
+`darkColors` table) and the per-category tints the app uses for pin and report
+types. The page sits on `surface` (`#141414`), not `background` (`#000000`):
+every screen in the app renders on surface, so black read as a different
+product.
 
-The expiry figures in the "staying current" section are the real ones, from
+Two small deviations, both deliberate. Hairlines are `#262629` rather than the
+app's `border` (`#1C1C1E`), which is eight values off the surface and vanishes
+on a desktop display. And muted body text is `#85858b` rather than `textMuted`
+(`#636366`), which only reaches 3.4:1 here — the web version clears AA at 5.0:1.
+
+The phone in the hero is a CSS and SVG rebuild of the real pin sheet: the same
+type tile, meta row, and the two verify buttons, plus the white head-and-stick
+marker from `MapPinMarker.tsx`. Icons are inline SVG defined once and referenced
+with `<use>`, drawn at the weight Ionicons uses in the app.
+
+The expiry figures in the "why it stays true" table are the real ones, from
 `REPORT_LIFETIME` in `CreateReportScreen.tsx` and `TTL_CONFIG` in the backend's
 `report.service.ts`. If those change, change them here.
 

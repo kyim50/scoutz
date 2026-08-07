@@ -3,32 +3,78 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Cite — the map your campus writes itself</title>
-<meta name="description" content="Cite is a community map. People drop pins for the things worth knowing — a bathroom that's actually open, a quiet floor to study on — and file reports that expire, so what you're looking at is current." />
-<meta name="theme-color" content="#000000" />
-
+<title>Cite — a map of what's actually true right now</title>
+<meta name="description" content="A community map for the things other maps don't hold: which bathroom is open, which floor is quiet, how long the queue is. Reports expire on their own, so what you're reading is current." />
+<meta name="theme-color" content="#141414" />
 <meta property="og:type" content="website" />
-<meta property="og:title" content="Cite — the map your campus writes itself" />
-<meta property="og:description" content="Pins for the things worth knowing. Reports that expire so the map stays true. Events, reviews and private groups." />
+<meta property="og:title" content="Cite — a map of what's actually true right now" />
+<meta property="og:description" content="Pins for what's worth knowing. Reports that expire so the map can't go stale. Public, or only to your group." />
 <meta property="og:url" content="https://joincite.com" />
 <meta name="twitter:card" content="summary_large_image" />
-
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='12' r='7' fill='%233ddc91'/><rect x='14.6' y='17' width='2.8' height='10' rx='1.4' fill='%233ddc91'/></svg>" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='11' r='6.5' fill='%233ddc91'/><rect x='14.7' y='15' width='2.6' height='11' rx='1.3' fill='%233ddc91'/></svg>" />
 <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
 
+<!-- Icons are drawn here once and referenced with <use>, so the stroke weight
+     stays identical everywhere and the markup below stays readable. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="i-pin" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/>
+    </g>
+    <g id="i-flag" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 21V4"/><path d="M6 5h11l-2.2 3.6L17 12H6"/>
+    </g>
+    <g id="i-cal" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>
+    </g>
+    <g id="i-star" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.8l2.6 5.4 5.9.85-4.25 4.15 1 5.9L12 17.3l-5.25 2.8 1-5.9L3.5 10.05l5.9-.85L12 3.8Z"/>
+    </g>
+    <g id="i-clock" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="8.6"/><path d="M12 7.2V12l3.2 2"/>
+    </g>
+    <g id="i-globe" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.3 2.4 3.4 5.4 3.4 8.6s-1.1 6.2-3.4 8.6c-2.3-2.4-3.4-5.4-3.4-8.6S9.7 5.8 12 3.4Z"/>
+    </g>
+    <g id="i-people" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="9" cy="8.4" r="3.3"/><path d="M3.4 19.2c0-3.1 2.5-5.2 5.6-5.2s5.6 2.1 5.6 5.2"/>
+      <path d="M16.2 6.1a3.1 3.1 0 0 1 0 5.9M17.4 14.4c2 .6 3.4 2.3 3.4 4.6"/>
+    </g>
+    <g id="i-check" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 12.5l4.6 4.5L19 7"/>
+    </g>
+    <g id="i-x" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>
+    </g>
+    <g id="i-nav" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.5 3.5 3.9 10.4l7 2.7 2.7 7 6.9-16.6Z"/>
+    </g>
+    <g id="i-book" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 5.2c2.7-1 5.3-1 8 .6 2.7-1.6 5.3-1.6 8-.6v13c-2.7-1-5.3-1-8 .6-2.7-1.6-5.3-1.6-8-.6v-13Z"/><path d="M12 5.8v13"/>
+    </g>
+    <g id="i-fork" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.5 3v6.2a2.4 2.4 0 0 0 4.8 0V3M8.9 9.6V21"/><path d="M16.6 21v-7.4h-1.4c0-4.6.6-8.2 2.8-10.6v18"/>
+    </g>
+    <g id="i-drop" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.2c3.4 4 5.6 6.9 5.6 9.7A5.6 5.6 0 1 1 6.4 12.9c0-2.8 2.2-5.7 5.6-9.7Z"/>
+    </g>
+    <g id="i-warn" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 4.2 2.9 19.4h18.2L12 4.2Z"/><path d="M12 10v4.1M12 17.1h.01"/>
+    </g>
+  </defs>
+</svg>
+
 <header class="nav">
-  <div class="wrap nav-inner">
+  <div class="wrap nav-in">
     <a class="brand" href="#top">
-      <span class="pin sm" aria-hidden="true"><span class="pin-head"></span><span class="pin-stick"></span></span>
-      Cite
+      <span class="pin" aria-hidden="true"><i></i><b></b></span> Cite
     </a>
     <nav class="nav-links">
-      <a href="#what">What it is</a>
-      <a href="#fresh">Staying current</a>
-      <a href="#groups">Groups</a>
-      <a href="#start">Get it</a>
+      <a href="#map">The map</a>
+      <a href="#expiry">Expiry</a>
+      <a href="#audience">Audience</a>
     </nav>
   </div>
 </header>
@@ -37,60 +83,87 @@
 
   <!-- ── Hero ─────────────────────────────────────────────────────────── -->
   <section class="hero">
-    <div class="wrap hero-inner">
+    <div class="wrap duo">
       <div>
-        <p class="eyebrow">A community map</p>
-        <h1>The map your campus<br />writes itself.</h1>
-        <p class="lede">
-          Every map knows where the buildings are. None of them know which bathroom
-          is open at 2am, which floor is quiet during finals, or that the café on
-          the corner has had a queue out the door since noon.
-          <strong style="color:var(--text)">Cite is the map for that</strong> — written
-          by the people already there.
+        <p class="label">Community map</p>
+        <h1>A map of what's actually true right now.</h1>
+        <p class="body">
+          Other maps know where the buildings are. They don't know that the third
+          floor is dead quiet after six, that the north door is the unlocked one,
+          or that the queue has been out the door since noon.
         </p>
         <div class="hero-cta">
-          <a class="btn btn-primary" href="#start">Get the app</a>
-          <a class="btn btn-ghost" href="#what">See how it works</a>
+          <a class="btn btn-fill" href="#get">Get the app</a>
+          <a class="btn btn-line" href="#map">What's on it</a>
         </div>
-        <p class="hero-note">Free. Works anywhere. Post publicly or only to your group.</p>
+        <p class="small hero-note">Free · post publicly or only to your group</p>
       </div>
 
-      <!-- A rebuild of the app's own pin sheet, in CSS. -->
+      <!-- The pin sheet, rebuilt. Same tile, meta row and verify buttons. -->
       <div class="phone" aria-hidden="true">
-        <div class="phone-screen">
-          <div class="phone-map">
-            <span class="map-pin" style="top:16%;left:16%;background:rgba(255,107,53,0.16);color:var(--food)">🍴</span>
-            <span class="map-pin" style="top:29%;left:63%;background:rgba(0,122,255,0.16);color:var(--access)">🚻</span>
-            <span class="map-pin" style="top:47%;left:26%;background:rgba(88,86,214,0.16);color:var(--campus)">📚</span>
-            <span class="map-pin" style="top:12%;left:44%;background:rgba(255,149,0,0.16);color:var(--hazard)">⚠️</span>
-            <span class="pin" style="position:absolute;top:52%;left:56%;z-index:3">
-              <span class="pin-head"></span><span class="pin-stick"></span>
+        <div class="screen">
+          <div class="map">
+            <svg viewBox="0 0 292 300" preserveAspectRatio="xMidYMid slice">
+              <g stroke="#20282e" stroke-width="15" stroke-linecap="round">
+                <path d="M-20 92 L312 66"/><path d="M-20 214 L312 196"/>
+                <path d="M64 -20 L92 320"/><path d="M206 -20 L188 320"/>
+              </g>
+              <g stroke="#1a2126" stroke-width="6" stroke-linecap="round">
+                <path d="M-10 150 L310 138"/><path d="M136 -10 L142 320"/><path d="M-10 30 L310 16"/>
+              </g>
+              <path d="M92 300 L92 196 L188 190" fill="none" stroke="#3ddc91" stroke-width="3.5"
+                    stroke-linecap="round" stroke-opacity="0.55"/>
+            </svg>
+            <span class="map-chip" style="top:46px;left:34px;color:var(--food)">
+              <svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-fork"/></svg>
             </span>
+            <span class="map-chip" style="top:96px;left:196px;color:var(--access)">
+              <svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-drop"/></svg>
+            </span>
+            <span class="map-chip" style="top:150px;left:78px;color:var(--campus)">
+              <svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-book"/></svg>
+            </span>
+            <span class="map-chip" style="top:34px;left:126px;color:var(--hazard)">
+              <svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-warn"/></svg>
+            </span>
+            <span class="pin" style="position:absolute;top:172px;left:174px"><i></i><b></b></span>
           </div>
 
-          <div class="phone-sheet">
-            <div class="sheet-grab"></div>
+          <div class="sheet">
+            <div class="grab"></div>
             <div class="sheet-row">
-              <span class="sheet-icon" style="background:rgba(255,107,53,0.16);color:var(--food)">🍴</span>
-              <span style="flex:1">
+              <span class="tile" style="background:rgba(255,107,53,0.14);color:var(--food)">
+                <svg width="19" height="19" viewBox="0 0 24 24"><use href="#i-fork"/></svg>
+              </span>
+              <span style="flex:1;min-width:0">
                 <span class="sheet-title">The Garden Court</span>
                 <span class="sheet-meta">
-                  <span class="stars">★</span> 4.8 · Food · 6 min · 461 m
+                  <svg width="11" height="11" viewBox="0 0 24 24" style="color:var(--gold)"><use href="#i-star"/></svg>
+                  4.8 <span class="dot"></span> Food <span class="dot"></span> 6 min <span class="dot"></span> 461 m
                 </span>
               </span>
             </div>
-            <div class="sheet-actions">
-              <span class="sheet-btn primary">Directions</span>
-              <span class="sheet-btn ghost">Reviews</span>
+
+            <div class="sheet-btns">
+              <span class="sbtn go">
+                <svg width="13" height="13" viewBox="0 0 24 24"><use href="#i-nav"/></svg> Directions
+              </span>
+              <span class="sbtn alt">Reviews</span>
+              <span class="sbtn sq" style="color:var(--text-2)">
+                <svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-star"/></svg>
+              </span>
             </div>
-            <div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border)">
-              <span class="chip-tag" style="background:rgba(255,149,0,0.14);color:var(--hazard)">⏱ Busy right now</span>
-              <p style="margin:9px 0 0;font-size:12px;line-height:1.55;color:var(--text-muted)">
-                Queue out the door, about 15 min. Upstairs seating is empty though.
-              </p>
-              <p style="margin:7px 0 0;font-size:10.5px;color:var(--text-muted)">
-                Posted 20 min ago · expires in 5h
-              </p>
+
+            <div class="sheet-sec">
+              <p class="label">Is this still accurate?</p>
+              <div class="verify">
+                <span class="vbtn" style="border-color:rgba(61,220,145,0.32);background:rgba(61,220,145,0.08);color:var(--accent)">
+                  <svg width="12" height="12" viewBox="0 0 24 24"><use href="#i-check"/></svg> Still here
+                </span>
+                <span class="vbtn" style="border-color:rgba(255,149,10,0.3);background:rgba(255,149,10,0.07);color:var(--hazard)">
+                  <svg width="12" height="12" viewBox="0 0 24 24"><use href="#i-x"/></svg> Gone / wrong
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -98,222 +171,178 @@
     </div>
   </section>
 
-  <hr class="rule" />
-
-  <!-- ── What it is ───────────────────────────────────────────────────── -->
-  <section id="what">
+  <!-- ── What's on it ─────────────────────────────────────────────────── -->
+  <section id="map">
     <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">What's on it</p>
-        <h2>Four kinds of useful.</h2>
-        <p class="section-sub">
-          Everything on Cite is something a person nearby thought was worth the
-          twenty seconds it took to add.
-        </p>
+      <div class="head">
+        <p class="label">What's on it</p>
+        <h2>Four things, added by whoever was standing there.</h2>
       </div>
 
-      <div class="grid">
-        <div class="card">
-          <div class="card-icon" style="background:var(--accent-tint);color:var(--accent)">📍</div>
-          <h3>Pins</h3>
-          <p>
-            Places that stay put. Bathrooms, food, pharmacies, study spaces,
-            charging points. Each one can carry the building, the floor and how to
-            actually get in — the door code, which entrance, what to say at the desk.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="card-icon" style="background:rgba(255,149,0,0.14);color:var(--hazard)">🚩</div>
-          <h3>Reports</h3>
-          <p>
-            What's true right now. A lift out of service, a flooded path, a kitchen
-            that's stopped serving, a queue worth avoiding. Reports expire on their
-            own, which is what keeps the map honest.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="card-icon" style="background:rgba(88,86,214,0.14);color:var(--campus)">📅</div>
-          <h3>Events</h3>
-          <p>
-            Anything happening at a place and a time — a study session, a society
-            night, a pickup game. RSVP, see who's coming, and find it again in your
-            activity when it's about to start.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="card-icon" style="background:rgba(255,184,0,0.14);color:var(--gold)">★</div>
-          <h3>Reviews</h3>
-          <p>
-            Ratings and a sentence on any pin, so "there's a bathroom here" becomes
-            "there's a clean one here, and the second floor is better". Photos
-            optional but they're what makes a review land.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <hr class="rule" />
-
-  <!-- ── Freshness ────────────────────────────────────────────────────── -->
-  <section id="fresh">
-    <div class="wrap split">
-      <div>
-        <p class="eyebrow">Why it stays true</p>
-        <h2>Everything temporary is treated as temporary.</h2>
-        <p class="section-sub">
-          The reason community maps rot is that nobody goes back to delete things.
-          So on Cite, a report is born with an expiry that matches how long it could
-          plausibly still be true — and when it lapses, it leaves.
-        </p>
-        <div class="expiry">
-          <div class="expiry-item">
-            <div class="expiry-kind" style="color:var(--food)">Food status</div>
-            <div class="expiry-time">6 hours</div>
+      <div class="list">
+        <article class="item">
+          <span class="item-ico" style="background:var(--accent-dim);color:var(--accent)">
+            <svg width="21" height="21" viewBox="0 0 24 24"><use href="#i-pin"/></svg>
+          </span>
+          <div>
+            <h3>Pins</h3>
+            <p>
+              Places that stay put — bathrooms, food, pharmacies, study spaces,
+              charging. Each carries the building, the floor, and how to actually
+              get in: the door code, which entrance, what to say at the desk.
+            </p>
           </div>
-          <div class="expiry-item">
-            <div class="expiry-kind">General</div>
-            <div class="expiry-time">12 hours</div>
-          </div>
-          <div class="expiry-item">
-            <div class="expiry-kind" style="color:var(--hazard)">Hazard</div>
-            <div class="expiry-time">24 hours</div>
-          </div>
-          <div class="expiry-item">
-            <div class="expiry-kind" style="color:var(--safety)">Safety</div>
-            <div class="expiry-time">48 hours</div>
-          </div>
-          <div class="expiry-item">
-            <div class="expiry-kind" style="color:var(--access)">Accessibility</div>
-            <div class="expiry-time">3 days</div>
-          </div>
-          <div class="expiry-item">
-            <div class="expiry-kind" style="color:var(--campus)">Campus update</div>
-            <div class="expiry-time">7 days</div>
-          </div>
-        </div>
-      </div>
+        </article>
 
-      <div>
-        <ul class="steps">
-          <li>
-            <div>
-              <strong>Reports run out</strong>
-              <span>A busy café at lunch says nothing about the same café at nine. If people keep replying, it lives longer — interest is the only thing that extends it.</span>
-            </div>
-          </li>
-          <li>
-            <div>
-              <strong>Pins get checked</strong>
-              <span>Every pin asks the one question that matters: is this still accurate? Two taps — still here, or gone. A pin nobody can vouch for stops being treated as fact.</span>
-            </div>
-          </li>
-          <li>
-            <div>
-              <strong>You can see who said it</strong>
-              <span>Every pin and report carries its author and its age, so you can weigh a five-minute-old note from a regular against something from last term.</span>
-            </div>
-          </li>
-        </ul>
+        <article class="item">
+          <span class="item-ico" style="background:rgba(255,149,0,0.13);color:var(--hazard)">
+            <svg width="21" height="21" viewBox="0 0 24 24"><use href="#i-flag"/></svg>
+          </span>
+          <div>
+            <h3>Reports</h3>
+            <p>
+              What's true this afternoon and won't be tomorrow. A lift out of
+              service, a flooded path, a kitchen that's stopped serving. Every one
+              is born with an expiry.
+            </p>
+          </div>
+        </article>
+
+        <article class="item">
+          <span class="item-ico" style="background:rgba(88,86,214,0.15);color:var(--campus)">
+            <svg width="21" height="21" viewBox="0 0 24 24"><use href="#i-cal"/></svg>
+          </span>
+          <div>
+            <h3>Events</h3>
+            <p>
+              Anything at a place and a time. RSVP, see who's coming, and find it
+              waiting under Upcoming when the day arrives.
+            </p>
+          </div>
+        </article>
+
+        <article class="item">
+          <span class="item-ico" style="background:rgba(255,184,0,0.13);color:var(--gold)">
+            <svg width="21" height="21" viewBox="0 0 24 24"><use href="#i-star"/></svg>
+          </span>
+          <div>
+            <h3>Reviews</h3>
+            <p>
+              A rating and a sentence, so "there's a bathroom here" becomes
+              "there's a clean one here, and the second floor is better."
+            </p>
+          </div>
+        </article>
       </div>
     </div>
   </section>
 
-  <hr class="rule" />
-
-  <!-- ── Groups ───────────────────────────────────────────────────────── -->
-  <section id="groups">
-    <div class="wrap split">
+  <!-- ── Expiry ───────────────────────────────────────────────────────── -->
+  <section id="expiry">
+    <div class="wrap duo">
       <div>
-        <p class="eyebrow">Who sees it</p>
+        <p class="label">Why it stays true</p>
+        <h2>Nobody comes back to delete things.</h2>
+        <p class="body" style="margin-top:16px">
+          That's how every community map rots. So on Cite nothing temporary has to
+          be cleaned up by hand — a report is filed with a lifespan matched to how
+          long it could plausibly still be true, and when that runs out it leaves
+          on its own. Replies extend it. Silence doesn't.
+        </p>
+        <p class="body" style="margin-top:16px">
+          Pins are permanent, so they get asked instead. Every pin carries one
+          question — <em style="color:var(--text);font-style:normal">is this still
+          accurate?</em> — and two taps to answer it.
+        </p>
+      </div>
+
+      <table class="ttl">
+        <caption class="label">How long a report lives</caption>
+        <thead>
+          <tr><th scope="col">Kind</th><th scope="col">Lifespan</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="kind"><span class="swatch" style="background:var(--food)"></span> Food status</span></td><td class="dur">6 hours</td></tr>
+          <tr><td><span class="kind"><span class="swatch" style="background:var(--text-3)"></span> General</span></td><td class="dur">12 hours</td></tr>
+          <tr><td><span class="kind"><span class="swatch" style="background:var(--hazard)"></span> Hazard</span></td><td class="dur">24 hours</td></tr>
+          <tr><td><span class="kind"><span class="swatch" style="background:var(--safety)"></span> Safety</span></td><td class="dur">48 hours</td></tr>
+          <tr><td><span class="kind"><span class="swatch" style="background:var(--access)"></span> Accessibility</span></td><td class="dur">3 days</td></tr>
+          <tr><td><span class="kind"><span class="swatch" style="background:var(--campus)"></span> Campus update</span></td><td class="dur">7 days</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Audience ─────────────────────────────────────────────────────── -->
+  <section id="audience">
+    <div class="wrap duo">
+      <div class="aud" aria-hidden="true">
+        <p class="label" style="margin-bottom:12px">Viewing as</p>
+        <div class="aud-row">
+          <span class="aud-ico" style="background:var(--high);color:var(--text-2)">
+            <svg width="18" height="18" viewBox="0 0 24 24"><use href="#i-globe"/></svg>
+          </span>
+          <span style="flex:1">
+            <span class="aud-name">Public</span>
+            <span class="aud-sub" style="display:block">Everything on the map</span>
+          </span>
+        </div>
+        <div class="aud-row on">
+          <span class="aud-ico" style="background:var(--accent);color:#06180e">
+            <svg width="18" height="18" viewBox="0 0 24 24"><use href="#i-people"/></svg>
+          </span>
+          <span style="flex:1">
+            <span class="aud-name">Flat 4B</span>
+            <span class="aud-sub" style="display:block">Owner · 5 members</span>
+          </span>
+          <svg width="19" height="19" viewBox="0 0 24 24" style="color:var(--accent)"><use href="#i-check"/></svg>
+        </div>
+      </div>
+
+      <div>
+        <p class="label">Who sees it</p>
         <h2>Public, or just your people.</h2>
-        <p class="section-sub">
-          Some things belong on the open map. Some belong to eleven people and
-          nobody else. Cite has one switch for that, and it sits at the top of the
-          map rather than buried in settings — so you always know which map you're
-          looking at before you add to it.
+        <p class="body" style="margin-top:16px">
+          Some things belong on the open map. Some belong to five people and nobody
+          else. One switch decides which, and it sits at the top of the map rather
+          than inside settings — so you always know which map you're adding to
+          before you add to it.
         </p>
-        <ul class="steps">
-          <li>
-            <div>
-              <strong>Everything on the map</strong>
-              <span>The public layer. Anything you add here, anyone nearby can see.</span>
-            </div>
-          </li>
-          <li>
-            <div>
-              <strong>A group you're in</strong>
-              <span>A flat, a team, a society. Pins, reports and events shared with the members and no one else — a private map laid over the same streets.</span>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <div>
-        <div class="review">
-          <div class="review-top">
-            <span class="avatar">K</span>
-            <span style="flex:1">
-              <span style="display:block;font-weight:600;font-size:14.5px">Kimani</span>
-              <span class="stars">★★★★★</span>
-              <span style="font-size:11.5px;color:var(--text-muted);margin-left:6px">2h ago</span>
-            </span>
-          </div>
-          <p>Third floor is dead quiet after 6 and every desk has a socket. Door on the north side is the one that's unlocked.</p>
-        </div>
-        <div class="review">
-          <div class="review-top">
-            <span class="avatar" style="background:var(--campus);color:#fff">A</span>
-            <span style="flex:1">
-              <span style="display:block;font-weight:600;font-size:14.5px">Amara</span>
-              <span class="stars">★★★★</span>
-              <span style="font-size:11.5px;color:var(--text-muted);margin-left:6px">Yesterday</span>
-            </span>
-          </div>
-          <p>Good coffee, terrible wifi. Fine for reading, not for a call.</p>
-        </div>
+        <p class="body" style="margin-top:16px">
+          A group is a private layer over the same streets: its own pins, its own
+          reports, visible to its members and no one else.
+        </p>
       </div>
     </div>
   </section>
 
-  <hr class="rule" />
-
-  <!-- ── Close ────────────────────────────────────────────────────────── -->
-  <section id="start">
+  <!-- ── Get it ───────────────────────────────────────────────────────── -->
+  <section id="get">
     <div class="wrap">
-      <div class="closer">
-        <p class="eyebrow">Get Cite</p>
-        <h2>Add the first pin where you are.</h2>
-        <p class="lede" style="color:var(--text-secondary)">
-          A map is only worth opening once somebody has put something on it. That
-          part takes about twenty seconds.
-        </p>
-        <div class="hero-cta">
-          <a class="btn btn-primary" href="#">Download for iOS</a>
-          <a class="btn btn-ghost" href="#">Download for Android</a>
-        </div>
-        <p class="hero-note">Coming to the App Store and Google Play.</p>
+      <p class="label">Get Cite</p>
+      <h2 style="max-width:24ch">A map is worth opening once somebody has put something on it.</h2>
+      <p class="body" style="margin-top:16px">That part takes about twenty seconds.</p>
+      <div class="hero-cta">
+        <a class="btn btn-fill" href="#">Download for iOS</a>
+        <a class="btn btn-line" href="#">Download for Android</a>
       </div>
+      <p class="small hero-note">Coming to the App Store and Google Play.</p>
     </div>
   </section>
 
 </main>
 
 <footer>
-  <div class="wrap footer-inner">
-    <div style="display:flex;align-items:center;gap:9px">
-      <span class="pin sm" aria-hidden="true"><span class="pin-head"></span><span class="pin-stick"></span></span>
-      <span>&copy; 2026 Cite</span>
-    </div>
-    <div class="footer-links">
-      <a href="#what">What it is</a>
-      <a href="#fresh">Staying current</a>
-      <a href="#groups">Groups</a>
+  <div class="wrap foot">
+    <span style="display:flex;align-items:center;gap:9px;color:var(--text-3);font-size:13.5px">
+      <span class="pin" aria-hidden="true"><i></i><b></b></span> © 2026 Cite
+    </span>
+    <span class="foot-links">
+      <a href="#map">The map</a>
+      <a href="#expiry">Expiry</a>
+      <a href="#audience">Audience</a>
       <a href="mailto:hello@joincite.com">Contact</a>
-    </div>
+    </span>
   </div>
 </footer>
 
