@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Animated, TouchableOpacity, Easing, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity, Easing, Dimensions } from 'react-native';
 import { SkeletonBox } from '../components/Skeleton';
 import { createStackNavigator, CardStyleInterpolators, TransitionSpecs } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -7,6 +7,7 @@ import { useIsFocused } from '@react-navigation/native';
 import type { StackCardInterpolationProps } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -39,7 +40,7 @@ import GroupDetailScreen from '../screens/GroupDetailScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const TAB_BAR_BASE_HEIGHT = 52;
+const TAB_BAR_BASE_HEIGHT = 56;
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -119,74 +120,85 @@ const SlideTabScreen = ({ children, index }: { children: React.ReactNode; index:
   );
 };
 
-// ── Tab button with press bounce ─────────────────────────────────────────────
-const AnimatedTabButton = ({ children, onPress, onLongPress, style }: any) => {
+// ── Tab button ───────────────────────────────────────────────────────────────
+/**
+ * Press feedback only. 0.75 was a quarter of the control's size — enough to
+ * read as the tab collapsing rather than as a button acknowledging a touch —
+ * and the release spring bounced, which on something pressed dozens of times a
+ * day is motion nobody asked to watch twice.
+ */
+const AnimatedTabButton = ({ children, onPress, onLongPress, style, accessibilityState }: any) => {
   const scale = useRef(new Animated.Value(1)).current;
 
-  const handlePressIn = () =>
-    Animated.spring(scale, {
-      toValue: 0.75,
+  const to = (toValue: number, duration: number) =>
+    Animated.timing(scale, {
+      toValue,
+      duration,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: true,
-      speed: 80,
-      bounciness: 2,
-    }).start();
-
-  const handlePressOut = () =>
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 16,
-      bounciness: 14,
     }).start();
 
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={(e) => {
+        // Silent when the tab is already open: nothing changed to confirm.
+        if (!accessibilityState?.selected) Haptics.selectionAsync().catch(() => {});
+        onPress?.(e);
+      }}
       onLongPress={onLongPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onPressIn={() => to(0.94, 90)}
+      onPressOut={() => to(1, 140)}
       activeOpacity={1}
       style={style}
+      accessibilityState={accessibilityState}
     >
       <Animated.View style={{ transform: [{ scale }] }}>{children}</Animated.View>
     </TouchableOpacity>
   );
 };
 
-// ── Animated tab icon — scales up on focus ────────────────────────────────────
-const TabIcon = ({ name, focused, color }: { name: any; focused: boolean; color: string }) => {
-  const scale = useRef(new Animated.Value(focused ? 1.2 : 1)).current;
-  const pillWidth = useRef(new Animated.Value(focused ? 16 : 0)).current;
-
-  useEffect(() => {
-    Animated.spring(scale, {
-      toValue: focused ? 1.2 : 1,
-      useNativeDriver: true,
-      speed: 18,
-      bounciness: 10,
-    }).start();
-    Animated.spring(pillWidth, {
-      toValue: focused ? 20 : 0,
-      useNativeDriver: false,
-      speed: 18,
-      bounciness: 8,
-    }).start();
-  }, [focused]);
-
-  return (
-    <View style={{ alignItems: 'center', gap: 5 }}>
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <Ionicons name={name} size={24} color={color} />
-      </Animated.View>
-      <Animated.View style={{
-        width: pillWidth,
-        height: 2,
-        borderRadius: 1,
-        backgroundColor: color,
-      }} />
-    </View>
-  );
-};
+// ── Tab item ─────────────────────────────────────────────────────────────────
+/**
+ * Icon over a label.
+ *
+ * The bar previously said "active" four times at once — colour, a filled
+ * glyph, a 1.2x scale and an underline — while saying nothing at all about
+ * what each tab was. Three abstract glyphs is a guess for anyone who has not
+ * already learned them, and none of the four signals helped with that. Two of
+ * them are gone and the space goes to a label instead.
+ *
+ * The scale also left the active glyph 29pt against its neighbours' 24, so the
+ * row never sat evenly, and the underline animated `width`, which cannot run on
+ * the native thread — the one animation in the app pinned to the JS thread, on
+ * the screen already busy drawing a map.
+ */
+const TabItem = ({
+  name,
+  label,
+  focused,
+  color,
+}: {
+  name: any;
+  label: string;
+  focused: boolean;
+  color: string;
+}) => (
+  <View style={{ alignItems: 'center', gap: 3, width: 76 }}>
+    <Ionicons name={name} size={23} color={color} />
+    <Text
+      numberOfLines={1}
+      style={{
+        fontSize: 11,
+        lineHeight: 14,
+        fontWeight: focused ? '700' : '500',
+        letterSpacing: 0.1,
+        color,
+      }}
+    >
+      {label}
+    </Text>
+  </View>
+);
 
 // ── Tab screens ───────────────────────────────────────────────────────────────
 const MapTabScreen = (props: any) => {
@@ -224,21 +236,28 @@ const MainTabs = () => {
         tabBarStyle: {
           height: TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 8),
           paddingBottom: Math.max(insets.bottom, 8),
-          paddingTop: 8,
+          paddingTop: 7,
           backgroundColor: colors.surface,
-          borderTopWidth: 0,
+          // The map runs to the bar's edge, so without this the two meet with
+          // nothing between them.
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
         },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.mediumGray,
         tabBarButton: (props) => <AnimatedTabButton {...props} />,
         tabBarIcon: ({ focused, color }) => {
-          const icons: Record<string, [string, string]> = {
-            Map: ['map', 'map-outline'],
-            Activity: ['reader', 'reader-outline'],
-            Profile: ['person', 'person-outline'],
+          // `reader` is a document, which is not what Activity holds. A clock
+          // matches what the screen is: your history, most recent first.
+          const tabs: Record<string, [string, string, string]> = {
+            Map: ['map', 'map-outline', 'Map'],
+            Activity: ['time', 'time-outline', 'Activity'],
+            Profile: ['person', 'person-outline', 'Account'],
           };
-          const [on, off] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-          return <TabIcon name={focused ? on : off} focused={focused} color={color} />;
+          const [on, off, label] = tabs[route.name] ?? ['ellipse', 'ellipse-outline', route.name];
+          return (
+            <TabItem name={focused ? on : off} label={label} focused={focused} color={color} />
+          );
         },
       })}
     >
