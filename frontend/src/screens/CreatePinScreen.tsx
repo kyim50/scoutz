@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import SelectableChip from '../components/SelectableChip';
 import { useAlert } from '../context/AlertContext';
 import { useGroup } from '../context/GroupContext';
 import { pinAPI, uploadAPI } from '../services/api';
@@ -119,12 +120,16 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
           borderRadius: borderRadius.sm,
           backgroundColor: colors.surfaceGray,
           gap: spacing.xs,
+          // Reserved so selecting a chip doesn't grow it by 2px and reflow the row.
+          borderWidth: 1,
+          borderColor: 'transparent',
         },
         typeChipActive: {
-          backgroundColor: colors.interactiveBg,
+          backgroundColor: colors.accentTint,
+          borderColor: colors.accent,
         },
         typeChipText: { ...typography.bodySmallMedium, color: colors.text, fontSize: 13 },
-        typeChipTextActive: { color: colors.interactiveText },
+        typeChipTextActive: { color: colors.accent },
 
         input: {
           ...typography.body,
@@ -314,21 +319,22 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
           <Text style={s.label}>Type</Text>
           <View style={s.typeRow}>
             {PIN_TYPES.map((pinType) => (
-              <TouchableOpacity
+              <SelectableChip
                 key={pinType.value}
+                selected={type === pinType.value}
                 style={[s.typeChip, type === pinType.value && s.typeChipActive]}
                 onPress={() => setType(pinType.value)}
-                activeOpacity={0.7}
+                accessibilityLabel={pinType.label}
               >
                 <Ionicons
                   name={pinType.icon as any}
                   size={15}
-                  color={type === pinType.value ? colors.interactiveText : colors.text}
+                  color={type === pinType.value ? colors.accent : colors.text}
                 />
                 <Text style={[s.typeChipText, type === pinType.value && s.typeChipTextActive]}>
                   {pinType.label}
                 </Text>
-              </TouchableOpacity>
+              </SelectableChip>
             ))}
           </View>
         </View>

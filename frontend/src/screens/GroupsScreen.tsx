@@ -274,14 +274,19 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
           borderColor: colors.border,
         },
         submitBtn: {
-          backgroundColor: colors.accent,
+          // Was colors.accent with interactiveText, i.e. black on green in dark
+          // mode — poor contrast, and the only green primary in the app.
+          backgroundColor: colors.interactiveBg,
           borderRadius: borderRadius.md,
           height: 46,
           alignItems: 'center' as const,
           justifyContent: 'center' as const,
         },
-        submitBtnDisabled: { opacity: 0.4 },
+        // Recessed rather than faded: opacity on a filled button leaves
+        // something that still reads as pressable.
+        submitBtnDisabled: { backgroundColor: colors.surfaceGray },
         submitBtnText: { ...typography.button, color: colors.interactiveText },
+        submitBtnTextDisabled: { color: colors.textMuted },
         cancelBtn: { alignItems: 'center' as const, paddingVertical: spacing.xs },
         cancelBtnText: { ...typography.body, color: colors.textMuted },
       }),
@@ -412,7 +417,7 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
             >
               {submitting
                 ? <ActivityIndicator color={colors.interactiveText} size="small" />
-                : <Text style={s.submitBtnText}>Create</Text>
+                : <Text style={[s.submitBtnText, !newGroupName.trim() && s.submitBtnTextDisabled]}>Create</Text>
               }
             </TouchableOpacity>
             <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowCreate(false); setNewGroupName(''); }}>
@@ -446,7 +451,7 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
             >
               {submitting
                 ? <ActivityIndicator color={colors.interactiveText} size="small" />
-                : <Text style={s.submitBtnText}>Join</Text>
+                : <Text style={[s.submitBtnText, !inviteCode.trim() && s.submitBtnTextDisabled]}>Join</Text>
               }
             </TouchableOpacity>
             <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowJoin(false); setInviteCode(''); }}>

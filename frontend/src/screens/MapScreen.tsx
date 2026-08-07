@@ -1180,7 +1180,9 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: colors.surfaceGray,
-          height: 46,
+          // 42 to match Directions and the icon buttons — this row had three
+          // different heights in it.
+          height: 42,
           borderRadius: borderRadius.md,
           paddingHorizontal: 10,
           gap: 8,
@@ -3571,7 +3573,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       category,
       coordinates: [lng, lat],
       address,
-      description: address ? `Mapbox place: ${address}` : undefined,
+      description: address || undefined,
     };
   };
 
@@ -3641,7 +3643,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
               category: String(poiCategory),
               coordinates: [Number(coords[0]), Number(coords[1])] as [number, number],
               address,
-              description: address ? `Mapbox place: ${address}` : undefined,
+              description: address || undefined,
             } as SelectedPoi;
           }
         }

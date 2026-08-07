@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import SelectableChip from '../components/SelectableChip';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { useGroup } from '../context/GroupContext';
@@ -541,14 +542,15 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
                 {subOptions.map((opt) => {
                   const active = subOption === opt.value;
                   return (
-                    <TouchableOpacity
+                    <SelectableChip
                       key={opt.value}
+                      selected={active}
                       style={[s.chip, active && s.chipActive]}
                       onPress={() => setSubOption(active ? '' : opt.value)}
-                      activeOpacity={0.7}
+                      accessibilityLabel={opt.label}
                     >
                       <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                    </TouchableOpacity>
+                    </SelectableChip>
                   );
                 })}
               </View>
@@ -596,9 +598,9 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
                   {OPEN_NOW_OPTIONS.map((opt) => {
                     const active = openNow === opt.value;
                     return (
-                      <TouchableOpacity key={opt.value} style={[s.chip, active && s.chipActive]} onPress={() => setOpenNow(active ? '' : opt.value)} activeOpacity={0.7}>
+                      <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setOpenNow(active ? '' : opt.value)} accessibilityLabel={opt.label}>
                         <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                      </TouchableOpacity>
+                      </SelectableChip>
                     );
                   })}
                 </View>
@@ -612,9 +614,9 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
                   {CROWD_LEVEL_OPTIONS.map((opt) => {
                     const active = crowdLevel === opt.value;
                     return (
-                      <TouchableOpacity key={opt.value} style={[s.chip, active && s.chipActive]} onPress={() => setCrowdLevel(active ? '' : opt.value)} activeOpacity={0.7}>
+                      <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setCrowdLevel(active ? '' : opt.value)} accessibilityLabel={opt.label}>
                         <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                      </TouchableOpacity>
+                      </SelectableChip>
                     );
                   })}
                 </View>
@@ -628,9 +630,9 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
                   {PURCHASE_REQUIRED_OPTIONS.map((opt) => {
                     const active = purchaseRequired === opt.value;
                     return (
-                      <TouchableOpacity key={opt.value} style={[s.chip, active && s.chipActive]} onPress={() => setPurchaseRequired(active ? '' : opt.value)} activeOpacity={0.7}>
+                      <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setPurchaseRequired(active ? '' : opt.value)} accessibilityLabel={opt.label}>
                         <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                      </TouchableOpacity>
+                      </SelectableChip>
                     );
                   })}
                 </View>
@@ -644,9 +646,9 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
                   {ACCESSIBILITY_LEVEL_OPTIONS.map((opt) => {
                     const active = accessibilityLevel === opt.value;
                     return (
-                      <TouchableOpacity key={opt.value} style={[s.chip, active && s.chipActive]} onPress={() => setAccessibilityLevel(active ? '' : opt.value)} activeOpacity={0.7}>
+                      <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setAccessibilityLevel(active ? '' : opt.value)} accessibilityLabel={opt.label}>
                         <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                      </TouchableOpacity>
+                      </SelectableChip>
                     );
                   })}
                 </View>
@@ -660,9 +662,9 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
                   {SAFETY_LEVEL_OPTIONS.map((opt) => {
                     const active = safetyLevel === opt.value;
                     return (
-                      <TouchableOpacity key={opt.value} style={[s.chip, active && s.chipActive]} onPress={() => setSafetyLevel(active ? '' : opt.value)} activeOpacity={0.7}>
+                      <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setSafetyLevel(active ? '' : opt.value)} accessibilityLabel={opt.label}>
                         <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                      </TouchableOpacity>
+                      </SelectableChip>
                     );
                   })}
                 </View>

@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import SelectableChip from '../components/SelectableChip';
 import { useAlert } from '../context/AlertContext';
 import { useGroup } from '../context/GroupContext';
 import { eventAPI, uploadAPI } from '../services/api';
@@ -193,12 +194,16 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
           borderRadius: borderRadius.sm,
           backgroundColor: colors.surfaceGray,
           gap: spacing.xs,
+          // Reserved so selecting a chip doesn't grow it by 2px and reflow the row.
+          borderWidth: 1,
+          borderColor: 'transparent',
         },
         categoryChipActive: {
-          backgroundColor: colors.interactiveBg,
+          backgroundColor: colors.accentTint,
+          borderColor: colors.accent,
         },
         categoryChipText: { ...typography.bodySmallMedium, color: colors.text },
-        categoryChipTextActive: { color: colors.interactiveText },
+        categoryChipTextActive: { color: colors.accent },
 
         input: {
           ...typography.bodySmall,
@@ -556,21 +561,22 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
           <Text style={s.label}>Category</Text>
           <View style={s.categoryRow}>
             {EVENT_CATEGORIES.map((cat) => (
-              <TouchableOpacity
+              <SelectableChip
                 key={cat.value}
+                selected={category === cat.value}
                 style={[s.categoryChip, category === cat.value && s.categoryChipActive]}
                 onPress={() => setCategory(cat.value)}
-                activeOpacity={0.7}
+                accessibilityLabel={cat.label}
               >
                 <Ionicons
                   name={cat.icon as any}
                   size={16}
-                  color={category === cat.value ? colors.interactiveText : colors.text}
+                  color={category === cat.value ? colors.accent : colors.text}
                 />
                 <Text style={[s.categoryChipText, category === cat.value && s.categoryChipTextActive]}>
                   {cat.label}
                 </Text>
-              </TouchableOpacity>
+              </SelectableChip>
             ))}
           </View>
         </View>
