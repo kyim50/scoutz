@@ -61,11 +61,32 @@ export class GroupService {
         return [];
       }
 
-      return (data ?? []).map((row: any) => ({
+      const groups = (data ?? []).map((row: any) => ({
         ...row.groups,
         role: row.role,
         joined_at: row.joined_at,
       }));
+
+      // The Group type has carried member_count all along but nothing set it,
+      // so the picker could only ever say "Owner". One extra query, bounded by
+      // how many groups this user is in.
+      const ids = groups.map((g: any) => g.id).filter(Boolean);
+      if (ids.length > 0) {
+        const { data: memberRows } = await supabaseAdmin
+          .from('group_members')
+          .select('group_id')
+          .in('group_id', ids);
+
+        const tally = new Map<string, number>();
+        for (const row of memberRows ?? []) {
+          tally.set(row.group_id, (tally.get(row.group_id) ?? 0) + 1);
+        }
+        for (const g of groups) {
+          g.member_count = tally.get(g.id) ?? 0;
+        }
+      }
+
+      return groups;
     } catch (error) {
       logger.error('Error in getUserGroups:', error);
       return [];
