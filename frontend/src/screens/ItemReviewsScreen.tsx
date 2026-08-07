@@ -256,6 +256,30 @@ export default function ItemReviewsScreen({ navigation, route }: ItemReviewsScre
           paddingTop: spacing.md,
           paddingBottom: spacing.sm,
         },
+        distribution: { gap: 4, marginTop: spacing.md, marginBottom: spacing.xs },
+        distRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+        distStar: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          width: 8,
+          textAlign: 'right',
+          fontVariant: ['tabular-nums'],
+        },
+        distTrack: {
+          flex: 1,
+          height: 5,
+          borderRadius: 3,
+          backgroundColor: colors.surfaceHigh,
+          overflow: 'hidden',
+        },
+        distFill: { height: '100%', borderRadius: 3, backgroundColor: '#FFB800' },
+        distCount: {
+          ...typography.caption,
+          color: colors.textMuted,
+          width: 20,
+          textAlign: 'right',
+          fontVariant: ['tabular-nums'],
+        },
         controlsLabel: {
           ...typography.bodySmallSemibold,
           color: colors.textSecondary,
@@ -363,6 +387,9 @@ export default function ItemReviewsScreen({ navigation, route }: ItemReviewsScre
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.borderLight,
         },
+        // A rating with no text has nothing between header and footer, so the
+        // normal separation reads as a rendering gap.
+        reviewFooterTight: { marginTop: spacing.sm },
         helpfulButton: {
           flexDirection: 'row',
           alignItems: 'center',
@@ -466,7 +493,7 @@ export default function ItemReviewsScreen({ navigation, route }: ItemReviewsScre
           </ScrollView>
         )}
 
-        <View style={s.reviewFooter}>
+        <View style={[s.reviewFooter, comment.length === 0 && s.reviewFooterTight]}>
           <TouchableOpacity style={s.helpfulButton} onPress={() => handleMarkHelpful(item.id)}>
             <Ionicons
               name={helpfulIds.has(item.id) ? 'heart' : 'heart-outline'}
@@ -516,6 +543,27 @@ export default function ItemReviewsScreen({ navigation, route }: ItemReviewsScre
                   {totalReviews} {totalReviews === 1 ? 'review' : 'reviews'}
                 </Text>
               </View>
+
+              {/* A single average says little — 5.0 from one rating and 4.6
+                  from ninety read identically without this. */}
+              {totalReviews > 0 && (
+                <View style={s.distribution}>
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const count = reviews.filter((r: any) => Math.round(r.rating) === star).length;
+                    const pct = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+                    return (
+                      <View key={star} style={s.distRow}>
+                        <Text style={s.distStar}>{star}</Text>
+                        <Ionicons name="star" size={9} color="#FFB800" />
+                        <View style={s.distTrack}>
+                          <View style={[s.distFill, { width: `${pct}%` }]} />
+                        </View>
+                        <Text style={s.distCount}>{count}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
               <TouchableOpacity
                 style={s.writeButton}
                 onPress={() => navigation.navigate('CreateReview', { itemType, itemId, itemTitle })}
@@ -527,7 +575,6 @@ export default function ItemReviewsScreen({ navigation, route }: ItemReviewsScre
             </View>
 
             <View style={s.controlsSection}>
-              <Text style={s.controlsLabel}>Sort & filter</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}

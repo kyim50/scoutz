@@ -105,6 +105,7 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
           color: colors.text,
           letterSpacing: -0.2,
         },
+        headerSpacer: { width: 40 },
         headerActions: { flexDirection: 'row', gap: spacing.xs },
         iconBtn: {
           width: 36,
@@ -338,12 +339,32 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
           <Text style={s.headerTitle}>Groups</Text>
         </View>
         <View style={s.headerActions}>
-          <TouchableOpacity style={s.iconBtn} onPress={() => setShowJoin(true)} activeOpacity={0.7}>
-            <Ionicons name="enter-outline" size={17} color={colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity style={s.iconBtn} onPress={() => setShowCreate(true)} activeOpacity={0.7}>
-            <Ionicons name="add" size={19} color={colors.text} />
-          </TouchableOpacity>
+          {groups.length > 0 ? (
+            <>
+              <TouchableOpacity
+                style={s.iconBtn}
+                onPress={() => setShowJoin(true)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Join a group with an invite code"
+              >
+                <Ionicons name="enter-outline" size={17} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={s.iconBtn}
+                onPress={() => setShowCreate(true)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Create a group"
+              >
+                <Ionicons name="add" size={19} color={colors.text} />
+              </TouchableOpacity>
+            </>
+          ) : (
+            // Hidden while the empty state is on screen: it already offers both
+            // actions as labelled full-width rows.
+            <View style={s.headerSpacer} />
+          )}
         </View>
       </View>
 
@@ -387,7 +408,10 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
                 <Ionicons name="people-outline" size={28} color={colors.textMuted} />
               </View>
               <Text style={s.emptyTitle}>No groups yet</Text>
-              <Text style={s.emptyHint}>Create a group or join one with an invite code to share pins and reports privately.</Text>
+              <Text style={s.emptyHint}>
+                Pins and reports you post to a group are only visible to its
+                members — useful for a class, a team, or a few friends.
+              </Text>
             </View>
           }
         />
@@ -399,7 +423,9 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
           <View style={s.sheet}>
             <View style={s.sheetHandle} />
             <Text style={s.sheetTitle}>Create a group</Text>
-            <Text style={s.sheetSub}>Share pins and reports with specific people.</Text>
+            <Text style={s.sheetSub}>
+              You&apos;ll get an invite code to share once it&apos;s created.
+            </Text>
             <TextInput
               style={s.input}
               placeholder="Group name"

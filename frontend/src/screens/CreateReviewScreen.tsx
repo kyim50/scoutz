@@ -16,6 +16,7 @@ import { spacing, typography, borderRadius } from '../constants/theme';
 import { reviewAPI, uploadAPI } from '../services/api';
 import ImagePicker from '../components/ImagePicker';
 import { useTheme } from '../context/ThemeContext';
+import SelectableChip from '../components/SelectableChip';
 import { useAlert } from '../context/AlertContext';
 
 interface CreateReviewScreenProps {
@@ -30,6 +31,19 @@ interface CreateReviewScreenProps {
 }
 
 const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+
+/**
+ * Tapping one appends it to the review text. Most people will not write prose,
+ * and a couple of these still produces something another user can act on.
+ */
+const REVIEW_PROMPTS = [
+  'Clean',
+  'Quiet',
+  'Busy',
+  'Hard to find',
+  'Well lit',
+  'Free to use',
+];
 const RATING_PROMPTS = [
   '',
   'What went wrong?',
@@ -111,6 +125,31 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
           color: '#FFB800',
           fontSize: 14,
         },
+        ratingRequiredText: {
+          ...typography.caption,
+          color: colors.textMuted,
+        },
+
+        promptRow: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: spacing.xs,
+          marginBottom: spacing.md,
+        },
+        promptChip: {
+          paddingVertical: 7,
+          paddingHorizontal: spacing.sm + 2,
+          borderRadius: borderRadius.round,
+          backgroundColor: colors.surfaceGray,
+          borderWidth: 1,
+          borderColor: 'transparent',
+        },
+        promptChipUsed: {
+          backgroundColor: colors.accentTint,
+          borderColor: colors.accent,
+        },
+        promptChipText: { ...typography.bodySmallMedium, color: colors.textSecondary },
+        promptChipTextUsed: { color: colors.accent },
 
         // ── Section label ──
         sectionLabel: {
@@ -235,9 +274,9 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
             ))}
           </View>
           <View style={s.ratingLabelRow}>
-            {rating > 0 && (
-              <Text style={s.ratingLabelText}>{RATING_LABELS[rating]}</Text>
-            )}
+            <Text style={rating > 0 ? s.ratingLabelText : s.ratingRequiredText}>
+              {rating > 0 ? RATING_LABELS[rating] : 'A rating is required'}
+            </Text>
           </View>
         </View>
 
@@ -256,6 +295,28 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
         </View>
         <View style={s.charRow}>
           <Text style={s.charCount}>{comment.length}/500</Text>
+        </View>
+
+        {/* Shortcuts into the text field rather than separate tags, so the
+            review stays one editable thing the user can still reword. */}
+        <View style={s.promptRow}>
+          {REVIEW_PROMPTS.map((prompt) => {
+            const used = comment.toLowerCase().includes(prompt.toLowerCase());
+            return (
+              <SelectableChip
+                key={prompt}
+                selected={used}
+                style={[s.promptChip, used && s.promptChipUsed]}
+                onPress={() => {
+                  if (used) return;
+                  setComment((c) => (c.trim() ? `${c.trim()}. ${prompt}` : prompt));
+                }}
+                accessibilityLabel={`Add "${prompt}" to your review`}
+              >
+                <Text style={[s.promptChipText, used && s.promptChipTextUsed]}>{prompt}</Text>
+              </SelectableChip>
+            );
+          })}
         </View>
 
         {/* ── Photos ── */}
