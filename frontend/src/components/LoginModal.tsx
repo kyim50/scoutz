@@ -6,12 +6,12 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Animated,
   Modal,
   Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Reanimated from 'react-native-reanimated';
 import { useSheetModal } from '../hooks/useSheetModal';
 import { spacing, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
@@ -40,13 +40,13 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
   const insets = useSafeAreaInsets();
 
   const {
-    backdropOpacity,
-    sheetTranslateY,
+    sheetStyle,
+    backdropStyle,
     onSheetLayout,
     animateIn,
     close: animateAndClose,
     runAfterClose,
-  } = useSheetModal({ visible, onClose });
+  } = useSheetModal({ onClose });
 
   const identifierInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
@@ -264,11 +264,12 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
     >
       <View style={{ flex: 1 }}>
         {/* Dim overlay — absoluteFill, pointer-events none so touches pass through */}
-        <Animated.View
+        <Reanimated.View
           pointerEvents="none"
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+            { backgroundColor: 'rgba(0,0,0,0.6)' },
+            backdropStyle,
           ]}
         />
 
@@ -277,11 +278,8 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
 
         {/* Anchored to the bottom and moved entirely by transform — see
             SignupModal for the full reasoning. */}
-        <Animated.View
-          style={[
-            { position: 'absolute', left: 0, right: 0, bottom: 0 },
-            { transform: [{ translateY: sheetTranslateY }] },
-          ]}
+        <Reanimated.View
+          style={[{ position: 'absolute', left: 0, right: 0, bottom: 0 }, sheetStyle]}
         >
           <View
             onLayout={onSheetLayout}
@@ -404,7 +402,7 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
               backgroundColor: colors.surface,
             }}
           />
-        </Animated.View>
+        </Reanimated.View>
       </View>
     </Modal>
   );

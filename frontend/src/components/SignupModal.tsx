@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Animated,
   Modal,
   Pressable,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useUsernameAvailability } from '../hooks/useUsernameAvailability';
+import Reanimated from 'react-native-reanimated';
 import { useSheetModal } from '../hooks/useSheetModal';
 import { spacing, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
@@ -45,13 +45,13 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   const insets = useSafeAreaInsets();
 
   const {
-    backdropOpacity,
-    sheetTranslateY,
+    sheetStyle,
+    backdropStyle,
     onSheetLayout,
     animateIn,
     close: animateAndClose,
     runAfterClose,
-  } = useSheetModal({ visible, onClose });
+  } = useSheetModal({ onClose });
 
   const emailInputRef = useRef<TextInput>(null);
   const nameInputRef = useRef<TextInput>(null);
@@ -355,11 +355,12 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
     >
       <View style={{ flex: 1 }}>
         {/* Dim overlay — pointer-events none so touches pass through */}
-        <Animated.View
+        <Reanimated.View
           pointerEvents="none"
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+            { backgroundColor: 'rgba(0,0,0,0.6)' },
+            backdropStyle,
           ]}
         />
 
@@ -371,11 +372,8 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
             both run on the native driver instead of re-laying-out the sheet.
             The tail below fills the area the keyboard vacates, which avoids
             animating `height` on every keyboard frame. */}
-        <Animated.View
-          style={[
-            { position: 'absolute', left: 0, right: 0, bottom: 0 },
-            { transform: [{ translateY: sheetTranslateY }] },
-          ]}
+        <Reanimated.View
+          style={[{ position: 'absolute', left: 0, right: 0, bottom: 0 }, sheetStyle]}
         >
           <View
             onLayout={onSheetLayout}
@@ -541,7 +539,7 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
               backgroundColor: colors.surface,
             }}
           />
-        </Animated.View>
+        </Reanimated.View>
       </View>
     </Modal>
   );
