@@ -5067,6 +5067,11 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     };
   }, [nearbyFeedItems, mode, currentArea, colors.info, colors.accent, colors.textMuted]);
 
+  const liveNearbyCount = useMemo(
+    () => nearbyFeedItems.filter((i) => i.isLive).length,
+    [nearbyFeedItems]
+  );
+
   const renderSkeletonFeed = () => (
     <>
       {[1, 2, 3].map(i => (
@@ -5328,15 +5333,13 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       <View style={styles.feedSection}>
         {/* Count header + filter chips */}
         <View style={styles.feedTopRow}>
-          <Text style={styles.feedHeading}>
-            {loadingNearby ? 'Loading...' : `${nearbyFeedItems.length} ${nearbyFeedItems.length === 1 ? 'thing' : 'things'} nearby`}
-          </Text>
-          {nearbyFeedItems.length > 0 && (
-            <Text style={styles.feedCount}>
-              {nearbyFeedItems.filter(i => i.isLive).length > 0
-                ? `${nearbyFeedItems.filter(i => i.isLive).length} live`
-                : ''}
-            </Text>
+          {/* The status row at the top of the sheet already carries the count,
+              and both are on screen at once. This names the section; the count
+              is stated once, up there. "Loading..." is redundant too — the
+              skeleton below says it. */}
+          <Text style={styles.feedHeading}>Nearby</Text>
+          {liveNearbyCount > 0 && (
+            <Text style={styles.feedCount}>{liveNearbyCount} live</Text>
           )}
         </View>
         
@@ -5578,8 +5581,9 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           ));
         })()}
 
-        {/* Long-press hint */}
-        {!loadingNearby && (
+        {/* Long-press hint — only with nothing to show. Under a list of real
+            results it is advice nobody asked for, on every visit, forever. */}
+        {!loadingNearby && nearbyFeedItems.length === 0 && (
           <View style={styles.longPressHint}>
             <Ionicons name="hand-left-outline" size={12} color={colors.textMuted} />
             <Text style={styles.longPressHintText}>Long press the map to drop a pin</Text>
