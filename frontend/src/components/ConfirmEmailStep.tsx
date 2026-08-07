@@ -24,9 +24,13 @@ interface ConfirmEmailStepProps {
 /** How long before the resend button becomes available again. */
 const RESEND_COOLDOWN_S = 30;
 
-/** Diameter of the pulsing halo and the icon it sits behind. */
-const HALO_SIZE = 104;
+/**
+ * The halo starts at exactly the icon's size and expands outward, so it reads
+ * as a ripple leaving the envelope. Sized larger than the icon it just looked
+ * like a big disc with a small dot in the middle.
+ */
 const ICON_SIZE = 72;
+const RIPPLE_PERIOD_MS = 2200;
 
 /**
  * Terminal step of signup when the project requires email confirmation.
@@ -50,20 +54,27 @@ export default function ConfirmEmailStep({
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_S);
   const [resentOnce, setResentOnce] = useState(false);
 
-  const halo = useSharedValue(0);
+  // Two ripples half a period apart, so there is always one mid-flight and the
+  // motion reads as continuous rather than as a repeating blink.
+  const ripple1 = useSharedValue(0);
+  const ripple2 = useSharedValue(0);
   const lift = useSharedValue(0);
 
   useEffect(() => {
-    // Expands outward and fades. It is invisible at the end of the cycle, so
-    // the instant reset back to the start is never seen.
-    halo.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2000, easing: Easing.out(Easing.quad) }),
-        withTiming(0, { duration: 0 })
-      ),
-      -1,
-      false
-    );
+    // Expands and fades. Fully transparent at the end of each cycle, so the
+    // instant reset back to the start is never seen.
+    const ripple = () =>
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: RIPPLE_PERIOD_MS, easing: Easing.out(Easing.quad) }),
+          withTiming(0, { duration: 0 })
+        ),
+        -1,
+        false
+      );
+
+    ripple1.value = ripple();
+    ripple2.value = withDelay(RIPPLE_PERIOD_MS / 2, ripple());
     // Offset and on a different period, so the two never lock into a
     // mechanical repeat.
     lift.value = withDelay(
@@ -79,10 +90,11 @@ export default function ConfirmEmailStep({
     );
 
     return () => {
-      cancelAnimation(halo);
+      cancelAnimation(ripple1);
+      cancelAnimation(ripple2);
       cancelAnimation(lift);
     };
-  }, [halo, lift]);
+  }, [ripple1, ripple2, lift]);
 
   // Counts down to re-enable resend, so the button is never a dead press.
   useEffect(() => {
@@ -91,9 +103,14 @@ export default function ConfirmEmailStep({
     return () => clearTimeout(t);
   }, [cooldown]);
 
-  const haloStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + halo.value * 0.75 }],
-    opacity: (1 - halo.value) * 0.28,
+  const ripple1Style = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + ripple1.value * 1.15 }],
+    opacity: (1 - ripple1.value) * 0.22,
+  }));
+
+  const ripple2Style = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + ripple2.value * 1.15 }],
+    opacity: (1 - ripple2.value) * 0.22,
   }));
 
   const envelopeStyle = useAnimatedStyle(() => ({
@@ -128,22 +145,22 @@ export default function ConfirmEmailStep({
         wrap: { alignItems: 'center', paddingTop: spacing.md },
 
         haloWrap: {
-          width: HALO_SIZE,
-          height: HALO_SIZE,
+          width: ICON_SIZE,
+          height: ICON_SIZE,
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: spacing.lg,
+          marginBottom: spacing.xl,
         },
         halo: {
-          // Pinned to all four edges so it is exactly centred on the icon.
-          // Absolute positioning without insets lays out from the top-left,
-          // which made the pulse expand off-centre.
+          // Pinned to all four edges so it is exactly centred on the icon and
+          // starts at the icon's own size. Absolute positioning without insets
+          // lays out from the top-left, which made the pulse expand off-centre.
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          borderRadius: HALO_SIZE / 2,
+          borderRadius: ICON_SIZE / 2,
           backgroundColor: colors.accent,
         },
         iconCircle: {
@@ -179,7 +196,23 @@ export default function ConfirmEmailStep({
           // Keeps the line length comfortable instead of spanning the sheet.
           maxWidth: 290,
         },
-        email: { color: colors.text, fontWeight: '600' },
+        // On its own line. Inline, a long address wrapped mid-sentence and
+        // split the instruction across the break.
+        email: {
+          fontSize: 16,
+          fontWeight: '600',
+          color: colors.text,
+          textAlign: 'center',
+          marginTop: spacing.sm,
+          marginBottom: spacing.sm,
+        },
+        hint: {
+          ...typography.caption,
+          color: colors.textMuted,
+          textAlign: 'center',
+          maxWidth: 280,
+          lineHeight: 17,
+        },
 
         // Reserved height so the layout doesn't shift when this appears.
         noticeSlot: {
@@ -233,7 +266,8 @@ export default function ConfirmEmailStep({
   return (
     <View style={s.wrap}>
       <View style={s.haloWrap}>
-        <Reanimated.View style={[s.halo, haloStyle]} pointerEvents="none" />
+        <Reanimated.View style={[s.halo, ripple1Style]} pointerEvents="none" />
+        <Reanimated.View style={[s.halo, ripple2Style]} pointerEvents="none" />
         <Reanimated.View style={envelopeStyle}>
           <View style={s.iconCircle}>
             <Ionicons name="mail-outline" size={32} color={colors.accent} />
@@ -243,10 +277,11 @@ export default function ConfirmEmailStep({
 
       <Text style={s.eyebrow}>Almost there</Text>
       <Text style={s.title}>Check your email</Text>
-      <Text style={s.body}>
-        We sent a confirmation link to <Text style={s.email}>{email}</Text>. Tap it and
-        you&apos;ll be signed in automatically.
+      <Text style={s.body}>We sent a confirmation link to</Text>
+      <Text style={s.email} numberOfLines={1} ellipsizeMode="middle">
+        {email}
       </Text>
+      <Text style={s.hint}>Tap it and you&apos;ll be signed in automatically.</Text>
 
       <View style={s.noticeSlot}>
         {resentOnce ? (
