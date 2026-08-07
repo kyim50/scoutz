@@ -11,6 +11,7 @@ import {
   SHEET_EASING,
   SHEET_IN_MS,
   SHEET_OUT_MS,
+  SHEET_TRAVEL,
   KEYBOARD_EASING,
   KEYBOARD_FALLBACK_MS,
 } from '../lib/motion';
@@ -39,10 +40,13 @@ const KEYBOARD_WAIT_MS = 120;
  *
  * Two behaviours matter more than they look:
  *
- * Exit travels the sheet's full measured height, not a fixed 80px. Sliding a
- * short distance and cutting the backdrop leaves the sheet visibly on screen
- * as everything disappears, which reads as a flash. Travelling its own height
- * means it is genuinely gone before the backdrop finishes.
+ * Entry and exit travel different distances, deliberately. Exit covers the
+ * sheet's full measured height so it is genuinely gone before the backdrop
+ * finishes — a short slide followed by the backdrop cutting out leaves the
+ * sheet visibly on screen, which reads as a flash. Entry only covers a short
+ * rise, because the keyboard already supplies most of the movement; entering
+ * from full height meant crossing the sheet's height plus the keyboard's
+ * inside one keyboard duration, which lurches.
  *
  * During exit the keyboard is driven to zero on the same timeline as the sheet.
  * Letting the system animate it on its own schedule made the sheet drop in two
@@ -62,7 +66,7 @@ export function useSheetModal({ visible, onClose }: Options) {
   const entryFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const afterCloseRef = useRef<(() => void) | null>(null);
 
-  /** Measures the sheet so entry and exit travel exactly its own height. */
+  /** Measures the sheet so exit travels exactly far enough to clear the screen. */
   const onSheetLayout = useCallback(
     (e: LayoutChangeEvent) => {
       const h = e.nativeEvent.layout.height;
@@ -92,7 +96,13 @@ export function useSheetModal({ visible, onClose }: Options) {
   const animateIn = useCallback(() => {
     closingRef.current = false;
     pendingEntryRef.current = true;
-    offset.setValue(heightRef.current);
+    // Entry is a short rise, not the full height. Exit has to clear the screen
+    // so it is gone before the backdrop finishes, but entering from that far
+    // means travelling the sheet's height *plus* the keyboard's in one keyboard
+    // duration — around 3000px/sec, which reads as a lurch rather than a sheet
+    // arriving. The keyboard supplies most of the movement; the sheet only has
+    // to close the last stretch.
+    offset.setValue(SHEET_TRAVEL);
     backdrop.setValue(0);
 
     // The backdrop is independent — it has nothing to sync with.
@@ -228,7 +238,7 @@ export function useSheetModal({ visible, onClose }: Options) {
         entryFallbackRef.current = null;
       }
       keyboard.setValue(0);
-      offset.setValue(heightRef.current);
+      offset.setValue(SHEET_TRAVEL);
       backdrop.setValue(0);
     }
   }, [visible, keyboard, offset, backdrop]);
