@@ -72,7 +72,7 @@ export default function ResetPasswordScreen() {
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        backdrop: { flex: 1, backgroundColor: colors.background },
+        backdrop: { flex: 1, backgroundColor: colors.surface },
         sheet: {
           backgroundColor: colors.surface,
           borderTopLeftRadius: 28,

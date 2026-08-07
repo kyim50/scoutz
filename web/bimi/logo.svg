@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" version="1.2" baseProfile="tiny-ps">
+  <title>Cite</title>
+  <rect width="512" height="512" fill="#141414"/>
+  <circle cx="256" cy="208" r="104" fill="#3ddc91"/>
+  <rect x="236" y="290" width="40" height="132" rx="20" fill="#3ddc91"/>
+</svg>

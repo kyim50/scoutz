@@ -100,3 +100,50 @@ Sign up with a real address on a provider you can inspect. Then check:
 If it never arrives, Resend → **Logs** shows whether the message left at all.
 Nothing there means Supabase never connected: wrong port, wrong password, or the
 domain is not verified yet.
+
+## Giving the sender a picture
+
+Three separate things get confused here, and only one of them is free.
+
+### The logo inside the message — free, working now
+
+Both templates carry `https://joincite.com/email/logo.png` at the top. It is
+hosted rather than attached or inlined because Gmail strips `data:` URIs and an
+attached image shows up as a paperclip on the message. It ships in `web/`, so
+deploying the site publishes it.
+
+This is what a recipient sees once they open the mail.
+
+### The avatar beside the sender — this is BIMI, and Gmail charges for it
+
+The circle next to the sender name in an inbox list is set by
+[BIMI](https://bimigroup.org). It needs, in order:
+
+1. **DMARC at enforcement.** `p=quarantine` or `p=reject`. joincite.com is on
+   `p=none`, which disqualifies it outright. Move only after a few weeks of
+   clean `rua` reports, or legitimate mail starts vanishing.
+2. **The mark in SVG Tiny PS.** `web/bimi/logo.svg` is already in that format —
+   square viewBox, `baseProfile="tiny-ps"`, a `<title>`, no scripts or external
+   references. Deploying the site hosts it.
+3. **A DNS record**, once the two above hold:
+   `default._bimi` TXT `v=BIMI1; l=https://joincite.com/bimi/logo.svg;`
+4. **A certificate, for Gmail specifically.** Gmail and Apple Mail will not show
+   a BIMI logo without a VMC or CMC from DigiCert or Entrust. A VMC needs a
+   registered trademark of the mark itself; a CMC needs a year of documented
+   use. Both are roughly $1,000 a year.
+
+Without step 4, steps 1–3 still work in Yahoo, Fastmail and La Poste, and cost
+nothing beyond the DMARC change. Gmail simply shows the default letter.
+
+### The Google account photo — the cheap middle path
+
+If `no-reply@joincite.com` is a real mailbox on Google Workspace (~$7/user/mo),
+the photo on that Google account appears beside the sender for Gmail
+recipients, no certificate involved. It is not BIMI and it does not reach other
+clients, but Gmail is most of the inbox and this is a fraction of the price.
+
+### What to actually do
+
+Ship the in-message logo, which is already done. Leave DMARC at `p=none` until
+you have read some reports. Revisit BIMI when there is a trademark worth
+certifying — it is a launched-product problem, not a pre-launch one.
