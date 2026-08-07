@@ -73,19 +73,43 @@ export default function GroupPickerModal({ visible, onClose, onManage }: GroupPi
           marginBottom: spacing.md,
         },
 
-        titleRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: spacing.md + 4,
-          paddingBottom: spacing.sm + 2,
-        },
-        title: {
+        header: { paddingHorizontal: spacing.md + 4, paddingBottom: spacing.md },
+        titleRow: { flexDirection: 'row', alignItems: 'center' },
+        eyebrow: {
           ...typography.caption,
-          fontWeight: '600',
+          fontSize: 11,
+          fontWeight: '700',
           color: colors.textMuted,
           textTransform: 'uppercase',
-          letterSpacing: 0.7,
+          letterSpacing: 0.8,
           flex: 1,
+        },
+        title: {
+          ...typography.h4,
+          fontSize: 20,
+          letterSpacing: -0.4,
+          color: colors.text,
+          marginTop: spacing.xs + 2,
+        },
+        subtitle: {
+          ...typography.bodySmall,
+          fontSize: 13,
+          lineHeight: 18,
+          color: colors.textMuted,
+          marginTop: 3,
+        },
+        // Same small-caps label the create forms use for a field, so a section
+        // break reads the same way everywhere in the app.
+        sectionLabel: {
+          ...typography.caption,
+          fontSize: 11,
+          fontWeight: '700',
+          color: colors.textMuted,
+          textTransform: 'uppercase',
+          letterSpacing: 0.8,
+          marginHorizontal: spacing.md + 4,
+          marginTop: spacing.xs,
+          marginBottom: spacing.sm,
         },
         manageBtn: {
           flexDirection: 'row',
@@ -261,20 +285,32 @@ export default function GroupPickerModal({ visible, onClose, onManage }: GroupPi
           <View style={s.sheet}>
             <View style={s.handle} />
 
-            <View style={s.titleRow}>
-              <Text style={s.title}>Viewing as</Text>
-              <TouchableOpacity
-                style={s.manageBtn}
-                onPress={() => {
-                  onClose();
-                  onManage();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Manage groups"
-              >
-                <Text style={s.manageBtnText}>Manage</Text>
-                <Ionicons name="chevron-forward" size={12} color={colors.accent} />
-              </TouchableOpacity>
+            <View style={s.header}>
+              <View style={s.titleRow}>
+                <Text style={s.eyebrow}>Viewing as</Text>
+                <TouchableOpacity
+                  style={s.manageBtn}
+                  onPress={() => {
+                    onClose();
+                    onManage();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage groups"
+                >
+                  <Text style={s.manageBtnText}>Manage</Text>
+                  <Ionicons name="chevron-forward" size={12} color={colors.accent} />
+                </TouchableOpacity>
+              </View>
+              {/* Names the current choice instead of making the eyebrow do it
+                  alone, and says what changing it actually affects. */}
+              <Text style={s.title} numberOfLines={1}>
+                {isPublic ? 'Public' : activeGroup?.name}
+              </Text>
+              <Text style={s.subtitle}>
+                {isPublic
+                  ? 'Everyone can see what you add here.'
+                  : 'Only members of this group see what you add.'}
+              </Text>
             </View>
 
             {renderRow({
@@ -320,16 +356,19 @@ export default function GroupPickerModal({ visible, onClose, onManage }: GroupPi
                 </TouchableOpacity>
               </View>
             ) : (
-              groups.map((g) =>
-                renderRow({
-                  key: g.id,
-                  icon: 'people',
-                  name: g.name,
-                  meta: groupMeta(g),
-                  selected: activeGroup?.id === g.id,
-                  onPress: () => handleSelect(g),
-                })
-              )
+              <>
+                <Text style={s.sectionLabel}>Your groups · {groups.length}</Text>
+                {groups.map((g) =>
+                  renderRow({
+                    key: g.id,
+                    icon: 'people',
+                    name: g.name,
+                    meta: groupMeta(g),
+                    selected: activeGroup?.id === g.id,
+                    onPress: () => handleSelect(g),
+                  })
+                )}
+              </>
             )}
           </View>
         </Animated.View>
