@@ -11,7 +11,8 @@
   --surface: #141414;
   --raised: #1c1c1e;
   --high: #242424;
-  --hairline: #262629;
+  --hairline: #232327;
+  --hairline-soft: #1e1e21;
   --rule-strong: #3a3a3c;
 
   --text: #ffffff;
@@ -99,8 +100,11 @@ p { margin: 0; }
   background: rgba(20, 20, 20, 0.82);
   backdrop-filter: saturate(160%) blur(12px);
   -webkit-backdrop-filter: saturate(160%) blur(12px);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid transparent;
+  transition: border-color 220ms var(--ease), background 220ms var(--ease);
 }
+
+.nav[data-scrolled] { border-bottom-color: var(--hairline); }
 
 .nav-in { display: flex; align-items: center; justify-content: space-between; height: 60px; }
 
@@ -141,8 +145,7 @@ p { margin: 0; }
 
 /* ── Layout ─────────────────────────────────────────────────────────────── */
 
-section { padding: clamp(56px, 8vw, 92px) 0; border-top: 1px solid var(--hairline); }
-section:first-of-type { border-top: 0; }
+section { padding: clamp(58px, 8.5vw, 100px) 0; }
 
 .head { margin-bottom: 40px; }
 .head .body { margin-top: 14px; }
@@ -249,14 +252,14 @@ section:first-of-type { border-top: 0; }
 
 /* ── Divided list (what the app does with its own lists) ────────────────── */
 
-.list { border-top: 1px solid var(--hairline); }
+.list { border-top: 1px solid var(--hairline-soft); }
 
 .item {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
   gap: 18px;
   padding: 26px 0;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline-soft);
   align-items: start;
 }
 
@@ -273,10 +276,10 @@ section:first-of-type { border-top: 0; }
   font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--text-3);
   padding: 0 0 10px;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline-soft);
 }
 .ttl th:last-child, .ttl td:last-child { text-align: right; }
-.ttl td { padding: 13px 0; border-bottom: 1px solid var(--hairline); font-size: 15px; }
+.ttl td { padding: 13px 0; border-bottom: 1px solid var(--hairline-soft); font-size: 15px; }
 .ttl tr:last-child td { border-bottom: 0; }
 .ttl .kind { display: flex; align-items: center; gap: 9px; font-weight: 500; }
 .swatch { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
@@ -299,7 +302,7 @@ section:first-of-type { border-top: 0; }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
 
-footer { border-top: 1px solid var(--hairline); padding: 30px 0 44px; }
+footer { border-top: 1px solid var(--hairline-soft); padding: 34px 0 46px; margin-top: 20px; }
 .foot { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
 .foot a { color: var(--text-3); font-size: 13.5px; transition: color 150ms var(--ease); }
 .foot a:hover { color: var(--text); }
@@ -318,4 +321,34 @@ footer { border-top: 1px solid var(--hairline); padding: 30px 0 44px; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   * { transition: none !important; }
+}
+
+/* ── Detail ─────────────────────────────────────────────────────────────── */
+
+::selection { background: rgba(61, 220, 145, 0.24); color: #fff; }
+
+/* Keyboard focus was invisible, which on a page that is mostly links matters
+   more than it looks like it should. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* ── Entrance ───────────────────────────────────────────────────────────── */
+
+/* Seen once per visit, so a small amount is affordable. 10px and 420ms: enough
+   to feel like the page is arriving, not enough to wait for.
+   Scoped to .js, set by an inline script in <head>: unscoped, a reader with
+   JavaScript off would get a blank page rather than an unanimated one. */
+.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 420ms var(--ease), transform 420ms var(--ease);
+}
+.js [data-reveal].in { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .js [data-reveal] { opacity: 1; transform: none; transition: none; }
 }

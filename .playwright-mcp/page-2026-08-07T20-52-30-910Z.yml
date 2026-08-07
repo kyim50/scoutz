@@ -1,0 +1,127 @@
+- generic [active] [ref=f5e1]:
+  - banner [ref=f5e2]:
+    - generic [ref=f5e3]:
+      - link "Cite" [ref=f5e4] [cursor=pointer]:
+        - /url: "#top"
+      - navigation [ref=f5e8]:
+        - link "The map" [ref=f5e9] [cursor=pointer]:
+          - /url: "#map"
+        - link "Expiry" [ref=f5e10] [cursor=pointer]:
+          - /url: "#expiry"
+        - link "Audience" [ref=f5e11] [cursor=pointer]:
+          - /url: "#audience"
+  - main [ref=f5e12]:
+    - generic [ref=f5e14]:
+      - generic [ref=f5e15]:
+        - paragraph [ref=f5e16]: Community map
+        - heading "A map of what's actually true right now." [level=1] [ref=f5e17]
+        - paragraph [ref=f5e18]: Other maps know where the buildings are. They don't know that the third floor is dead quiet after six, that the north door is the unlocked one, or that the queue has been out the door since noon.
+        - generic [ref=f5e19]:
+          - link "Get the app" [ref=f5e20] [cursor=pointer]:
+            - /url: "#get"
+          - link "What's on it" [ref=f5e21] [cursor=pointer]:
+            - /url: "#map"
+        - paragraph [ref=f5e22]: Free · post publicly or only to your group
+      - generic [ref=f5e52]:
+        - generic [ref=f5e58]:
+          - text: The Garden Court
+          - generic [ref=f5e59]: 4.8 Food 6 min 461 m
+        - generic [ref=f5e65]:
+          - generic [ref=f5e66]: Directions
+          - generic [ref=f5e69]: Reviews
+        - generic [ref=f5e73]:
+          - paragraph [ref=f5e74]: Is this still accurate?
+          - generic [ref=f5e75]:
+            - generic [ref=f5e76]: Still here
+            - generic [ref=f5e79]: Gone / wrong
+    - generic [ref=f5e83]:
+      - generic [ref=f5e84]:
+        - paragraph [ref=f5e85]: What's on it
+        - heading "Four things, added by whoever was standing there." [level=2] [ref=f5e86]
+      - generic [ref=f5e87]:
+        - article [ref=f5e88]:
+          - generic [ref=f5e92]:
+            - heading "Pins" [level=3] [ref=f5e93]
+            - paragraph [ref=f5e94]: "Places that stay put — bathrooms, food, pharmacies, study spaces, charging. Each carries the building, the floor, and how to actually get in: the door code, which entrance, what to say at the desk."
+        - article [ref=f5e95]:
+          - generic [ref=f5e99]:
+            - heading "Reports" [level=3] [ref=f5e100]
+            - paragraph [ref=f5e101]: What's true this afternoon and won't be tomorrow. A lift out of service, a flooded path, a kitchen that's stopped serving. Every one is born with an expiry.
+        - article [ref=f5e102]:
+          - generic [ref=f5e106]:
+            - heading "Events" [level=3] [ref=f5e107]
+            - paragraph [ref=f5e108]: Anything at a place and a time. RSVP, see who's coming, and find it waiting under Upcoming when the day arrives.
+        - article [ref=f5e109]:
+          - generic [ref=f5e113]:
+            - heading "Reviews" [level=3] [ref=f5e114]
+            - paragraph [ref=f5e115]: A rating and a sentence, so "there's a bathroom here" becomes "there's a clean one here, and the second floor is better."
+    - generic [ref=f5e117]:
+      - generic [ref=f5e118]:
+        - paragraph [ref=f5e119]: Why it stays true
+        - heading "Nobody comes back to delete things." [level=2] [ref=f5e120]
+        - paragraph [ref=f5e121]: That's how every community map rots. So on Cite nothing temporary has to be cleaned up by hand — a report is filed with a lifespan matched to how long it could plausibly still be true, and when that runs out it leaves on its own. Replies extend it. Silence doesn't.
+        - paragraph [ref=f5e122]:
+          - text: Pins are permanent, so they get asked instead. Every pin carries one question —
+          - emphasis [ref=f5e123]: is this still accurate?
+          - text: — and two taps to answer it.
+      - table [ref=f5e124]:
+        - caption [ref=f5e125]: How long a report lives
+        - rowgroup [ref=f5e126]:
+          - row [ref=f5e127]:
+            - columnheader "Kind" [ref=f5e128]
+            - columnheader "Lifespan" [ref=f5e129]
+        - rowgroup [ref=f5e130]:
+          - row [ref=f5e131]:
+            - cell "Food status" [ref=f5e132]
+            - cell "6 hours" [ref=f5e135]
+          - row [ref=f5e136]:
+            - cell "General" [ref=f5e137]
+            - cell "12 hours" [ref=f5e140]
+          - row [ref=f5e141]:
+            - cell "Hazard" [ref=f5e142]
+            - cell "24 hours" [ref=f5e145]
+          - row [ref=f5e146]:
+            - cell "Safety" [ref=f5e147]
+            - cell "48 hours" [ref=f5e150]
+          - row [ref=f5e151]:
+            - cell "Accessibility" [ref=f5e152]
+            - cell "3 days" [ref=f5e155]
+          - row [ref=f5e156]:
+            - cell "Campus update" [ref=f5e157]
+            - cell "7 days" [ref=f5e160]
+    - generic [ref=f5e162]:
+      - generic [ref=f5e163]:
+        - paragraph [ref=f5e164]: Viewing as
+        - generic [ref=f5e169]:
+          - text: Public
+          - generic [ref=f5e170]: Everything on the map
+        - generic [ref=f5e175]:
+          - text: Flat 4B
+          - generic [ref=f5e176]: Owner · 5 members
+      - generic [ref=f5e179]:
+        - paragraph [ref=f5e180]: Who sees it
+        - heading "Public, or just your people." [level=2] [ref=f5e181]
+        - paragraph [ref=f5e182]: Some things belong on the open map. Some belong to five people and nobody else. One switch decides which, and it sits at the top of the map rather than inside settings — so you always know which map you're adding to before you add to it.
+        - paragraph [ref=f5e183]: "A group is a private layer over the same streets: its own pins, its own reports, visible to its members and no one else."
+    - generic [ref=f5e185]:
+      - paragraph [ref=f5e186]: Get Cite
+      - heading "A map is worth opening once somebody has put something on it." [level=2] [ref=f5e187]
+      - paragraph [ref=f5e188]: That part takes about twenty seconds.
+      - generic [ref=f5e189]:
+        - link "Download for iOS" [ref=f5e190] [cursor=pointer]:
+          - /url: "#"
+        - link "Download for Android" [ref=f5e191] [cursor=pointer]:
+          - /url: "#"
+      - paragraph [ref=f5e192]: Coming to the App Store and Google Play.
+  - contentinfo [ref=f5e193]:
+    - generic [ref=f5e194]:
+      - generic [ref=f5e195]: © 2026 Cite
+      - generic [ref=f5e199]:
+        - link "The map" [ref=f5e200] [cursor=pointer]:
+          - /url: "#map"
+        - link "Expiry" [ref=f5e201] [cursor=pointer]:
+          - /url: "#expiry"
+        - link "Audience" [ref=f5e202] [cursor=pointer]:
+          - /url: "#audience"
+        - link "Contact" [ref=f5e203] [cursor=pointer]:
+          - /url: mailto:hello@joincite.com
