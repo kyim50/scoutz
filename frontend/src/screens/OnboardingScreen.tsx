@@ -237,7 +237,7 @@ export default function OnboardingScreen({ navigation, onComplete }: OnboardingS
   };
 
   return (
-    <View style={[s.container, { backgroundColor: colors.background, paddingTop: insets.top + spacing.md }]}>
+    <View style={[s.container, { backgroundColor: colors.surface, paddingTop: insets.top + spacing.md }]}>
       {/* Slides */}
       <FlatList
         data={slides}

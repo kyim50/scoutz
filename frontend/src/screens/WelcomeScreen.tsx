@@ -10,6 +10,14 @@ import SignupModal from '../components/SignupModal';
 
 const { height } = Dimensions.get('window');
 
+// LinearGradient interpolates in RGBA, so a fade has to carry the target colour's
+// own channels at every stop — starting from 'transparent' drags the midpoint
+// through black.
+const rgbaFrom = (hex: string, alpha: number) => {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+};
+
 const SAMPLE_CARDS = [
   { id: 1, size: 'large' },
   { id: 2, size: 'small' },
@@ -31,7 +39,7 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.background },
+        container: { flex: 1, backgroundColor: colors.surface },
         cardGrid: { flex: 1, flexDirection: 'row', paddingHorizontal: spacing.xs, paddingTop: spacing.lg },
         column: { flex: 1, paddingHorizontal: spacing.xs },
         card: {
@@ -42,7 +50,7 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
         cardInner: {
           flex: 1,
           borderRadius: borderRadius.lg,
-          backgroundColor: colors.surface,
+          backgroundColor: colors.surfaceHigh,
           borderWidth: 1,
           borderColor: colors.border,
         },
@@ -287,12 +295,12 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
     );
   };
 
-  const backgroundGradient = isDarkMode
-    ? ['#000000', '#000000', '#0A0A0A'] as const
-    : [colors.background, colors.background, colors.background] as const;
-  const overlayGradient = isDarkMode
-    ? ['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.86)', '#000000'] as const
-    : ['transparent', `rgba(255,255,255,0.4)`, colors.background] as const;
+  const backgroundGradient = [colors.surfaceGray, colors.surface, colors.surface] as const;
+  const overlayGradient = [
+    rgbaFrom(colors.surface, 0),
+    rgbaFrom(colors.surface, isDarkMode ? 0.86 : 0.4),
+    colors.surface,
+  ] as const;
 
   return (
     <LinearGradient

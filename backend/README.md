@@ -30,8 +30,10 @@ Required environment variables:
 - In Supabase Dashboard → **Authentication** → **URL Configuration**, add `cite://auth/callback` to **Redirect URLs**.
 - On iOS the link often opens the app without the token (fragment stripped). To fix: host `docs/supabase-auth-redirect.html` at a URL, add that URL to Supabase Redirect URLs, and set `EXPO_PUBLIC_SUPABASE_REDIRECT_URL` in the frontend `.env`. The page redirects instantly to the app with the token.
 
-Optional (if not using Supabase magic link – backend sends email):
-- `SMTP_*` - To send magic link emails from the backend. `MAGIC_LINK_APP_SCHEME` (default `cite`), `SMTP_FROM`, `MAGIC_LINK_BASE_URL`.
+**Email:** Supabase Auth sends every message the app produces — confirmations
+and password resets. Nothing in `src/` opens an SMTP connection, so there are no
+`SMTP_*` variables to set here. To send from `joincite.com` instead of
+Supabase's built-in sender, see `email-templates/SETUP.md`.
 
 ### 3. Database Setup
 
