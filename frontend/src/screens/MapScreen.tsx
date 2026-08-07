@@ -889,10 +889,27 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           marginBottom: spacing.sm,
         },
         feedHeading: {
-          ...typography.bodySmallSemibold,
+          ...typography.h4,
           color: colors.text,
-          fontSize: 15,
+          fontSize: 20,
+          letterSpacing: -0.4,
+        },
+        feedSubheading: {
+          ...typography.caption,
+          color: colors.textMuted,
+          marginTop: 1,
+        },
+        // Names the grid above it. Six buttons sat under the search bar with
+        // nothing saying what they were or why they were first.
+        sheetSectionLabel: {
+          ...typography.caption,
           fontWeight: '700',
+          fontSize: 11,
+          textTransform: 'uppercase',
+          letterSpacing: 0.7,
+          color: colors.textMuted,
+          paddingHorizontal: spacing.md,
+          paddingTop: spacing.md,
         },
         feedCount: {
           ...typography.caption,
@@ -5183,6 +5200,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           shows only the three that fit the current context, so one of them
           reads as the obvious next move. */}
       {isSheetExpandedForContent && !chipsCollapsedByDrag ? (
+        <>
+        <Text style={styles.sheetSectionLabel}>Shortcuts</Text>
         <View style={styles.quickActions}>
           {ALL_QUICK_ACTIONS.map((action) => (
             <TouchableOpacity
@@ -5201,6 +5220,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
             </TouchableOpacity>
           ))}
         </View>
+        </>
       ) : (
         <ScrollView
           horizontal
@@ -5337,7 +5357,14 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
               and both are on screen at once. This names the section; the count
               is stated once, up there. "Loading..." is redundant too — the
               skeleton below says it. */}
-          <Text style={styles.feedHeading}>Nearby</Text>
+          <View>
+            <Text style={styles.feedHeading}>Nearby</Text>
+            <Text style={styles.feedSubheading}>
+              {mode === 'campus' && currentArea?.areaName
+                ? currentArea.areaName
+                : 'Sorted by distance from you'}
+            </Text>
+          </View>
           {liveNearbyCount > 0 && (
             <Text style={styles.feedCount}>{liveNearbyCount} live</Text>
           )}
@@ -5536,7 +5563,12 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
 
           return sections.map((section) => (
             <View key={section.label} style={styles.feedSectionGroup}>
-              {section.label !== 'Nearby spots' && (
+              {/* "Nearby spots" used to hide its header unconditionally, and
+                  it is the section a lone pin lands in — so the common case was
+                  one card under the chips with nothing naming it. Every other
+                  section is only pushed when it has items, so this is just:
+                  label a section that has something in it. */}
+              {section.items.length > 0 && (
                 <View style={styles.feedSectionHeader}>
                   <Ionicons name={section.icon as any} size={12} color={section.iconColor} />
                   <Text style={[styles.feedSectionLabel, { color: section.iconColor }]}>{section.label}</Text>
