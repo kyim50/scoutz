@@ -14,3 +14,18 @@ export const MAPBOX_TOKEN: string = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
  * Light preset vs night preset is controlled via StyleImport config inside MapView.
  */
 export const MAPBOX_STYLE_STANDARD = 'mapbox://styles/mapbox/standard';
+
+/**
+ * Styles for the Static Images API, which renders the thumbnails on the create
+ * form and in Activity.
+ *
+ * These are not the style the live map uses. `mapbox/standard` cannot be
+ * rendered by the Static Images API at all — it returns 400 "Unsupported
+ * rasterarray tileset format: mapbox.mapbox-landmark-icons-v1", because the
+ * style imports tilesets the raster renderer does not handle. The navigation
+ * pair is the closest thing available that does render: like Standard's night
+ * preset it keeps the road network legible on a blue-cast base, rather than
+ * the flat neutral grey of dark-v11.
+ */
+export const STATIC_MAP_STYLE_NIGHT = 'navigation-night-v1';
+export const STATIC_MAP_STYLE_DAY = 'navigation-day-v1';

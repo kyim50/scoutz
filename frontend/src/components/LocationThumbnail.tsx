@@ -1,7 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { MAPBOX_TOKEN } from '../constants/map';
+import {
+  MAPBOX_TOKEN,
+  STATIC_MAP_STYLE_DAY,
+  STATIC_MAP_STYLE_NIGHT,
+} from '../constants/map';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import MapPinMarker, { PIN_HEIGHT } from '../components/MapPinMarker';
@@ -41,7 +45,7 @@ export default function LocationThumbnail({
 
   const uri = useMemo(() => {
     if (!MAPBOX_TOKEN) return null;
-    const style = isDarkMode ? 'dark-v11' : 'streets-v12';
+    const style = isDarkMode ? STATIC_MAP_STYLE_NIGHT : STATIC_MAP_STYLE_DAY;
     // No marker in the URL: Mapbox's teardrop is not the pin this flow uses, so
     // the app's own marker is drawn over the centre instead.
     return (
