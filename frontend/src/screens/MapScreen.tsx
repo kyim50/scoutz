@@ -207,6 +207,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const [verifyChoice, setVerifyChoice] = useState<boolean | null>(null);
   const [averageRating, setAverageRating] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
+  /** The newest review. The fetch already returns the rows; only the rating was kept. */
+  const [latestReview, setLatestReview] = useState<any>(null);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
 
   const [showReportModal, setShowReportModal] = useState(false);
@@ -1297,24 +1299,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           color: colors.textSecondary,
           lineHeight: 15,
         },
-        detailFlatLabelBtn: {
-          marginLeft: 'auto',
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 3,
-          paddingHorizontal: 8,
-          paddingVertical: 3,
-          borderRadius: borderRadius.round,
-          backgroundColor: colors.surfaceGray,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-        },
-        detailFlatLabelBtnText: {
-          fontSize: 11,
-          fontWeight: '600' as const,
-          color: colors.textSecondary,
-          lineHeight: 15,
-        },
         detailFlatBody: {
           fontSize: 14,
           fontWeight: '400' as const,
@@ -1327,6 +1311,19 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           color: colors.textMuted,
           fontStyle: 'italic' as const,
           lineHeight: 18,
+        },
+        detailLatestReview: { flex: 1, gap: 5 },
+        detailLatestReviewStars: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+        detailLatestReviewAuthor: {
+          ...typography.caption,
+          color: colors.textMuted,
+          marginLeft: 6,
+          flexShrink: 1,
+        },
+        detailLatestReviewText: {
+          fontSize: 13,
+          lineHeight: 18,
+          color: colors.textSecondary,
         },
         detailFlatEmptyRow: {
           flexDirection: 'row',
@@ -1372,11 +1369,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         },
 
         // ── Photo empty state ──
-        detailPhotoEmptyRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 10,
-        },
 
         // ── Reviews row ──
         detailReviewRow2: {
@@ -1391,15 +1383,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           color: colors.text,
           lineHeight: 32,
           letterSpacing: -0.5,
-        },
-        detailReviewMid2: {
-          flex: 1,
-          gap: 3,
-        },
-        detailReviewStarsRow2: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 2,
         },
         detailReviewCountLabel2: {
           fontSize: 12,
@@ -1538,14 +1521,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           borderStyle: 'dashed',
           paddingVertical: spacing.md,
           paddingHorizontal: spacing.md,
-        },
-        detailPhotoEmptyIconWrap: {
-          width: 46,
-          height: 46,
-          borderRadius: borderRadius.md,
-          justifyContent: 'center',
-          alignItems: 'center',
-          flexShrink: 0,
         },
         detailPhotoEmptyTitle: {
           ...typography.bodySmallSemibold,
@@ -3196,6 +3171,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       setIsSaved(false);
       setAverageRating(0);
       setReviewCount(0);
+      setLatestReview(null);
       setPinReports([]);
       // Always open POI detail at the collapsed/peek position (flush to nav bar)
       if (sheetIndexRef.current !== SHEET_INDEX.COLLAPSED) {
@@ -3383,6 +3359,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       setIsSaved(false);
       setAverageRating(0);
       setReviewCount(0);
+      setLatestReview(null);
       setIsPinMetaLoading(false);
       return;
     }
@@ -3402,14 +3379,24 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         const rating = reviewsResponse.data?.rating ?? reviewsResponse.rating;
         setAverageRating(rating?.average ?? 0);
         setReviewCount(rating?.count ?? 0);
+        const rows = reviewsResponse.data?.reviews ?? reviewsResponse.reviews ?? [];
+        const newest = [...rows]
+          .filter((r: any) => r?.comment?.trim())
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )[0];
+        setLatestReview(newest ?? null);
       } catch {
         setAverageRating(0);
         setReviewCount(0);
+        setLatestReview(null);
       }
     } catch {
       setIsSaved(false);
       setAverageRating(0);
       setReviewCount(0);
+      setLatestReview(null);
     } finally {
       setIsPinMetaLoading(false);
     }
@@ -6062,9 +6049,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     const pinTypeColor = PIN_TYPE_COLORS[detailItem.type] || PIN_TYPE_COLORS.default;
 
     // Star rating helpers
-    const fullStars = Math.floor(averageRating);
-    const hasHalf = averageRating - fullStars >= 0.5;
-    const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
 
     // Creator info
     const resolvedCreatorName =
@@ -6449,7 +6433,10 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
             {detailItem.description ? (
               <Text style={styles.detailFlatBody} numberOfLines={6}>{detailItem.description}</Text>
             ) : (
-              <Text style={styles.detailFlatEmpty}>No description added yet.</Text>
+              <View style={styles.detailFlatEmptyRow}>
+                <Ionicons name="document-text-outline" size={14} color={colors.textMuted} />
+                <Text style={styles.detailFlatEmpty}>No description added yet</Text>
+              </View>
             )}
           </View>
         )}
@@ -6578,10 +6565,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
                   ))}
                 </ScrollView>
               ) : (
-                <View style={styles.detailPhotoEmptyRow}>
-                  <View style={[styles.detailPhotoEmptyIconWrap, { backgroundColor: pinTypeColor + '16' }]}>
-                    <Ionicons name="camera-outline" size={20} color={pinTypeColor} />
-                  </View>
+                <View style={styles.detailFlatEmptyRow}>
+                  <Ionicons name="camera-outline" size={14} color={colors.textMuted} />
                   <Text style={styles.detailFlatEmpty}>No photos yet</Text>
                 </View>
               )}
@@ -6602,15 +6587,36 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
             </View>
             {reviewCount > 0 ? (
               <TouchableOpacity style={styles.detailReviewRow2} onPress={handleViewReviews} activeOpacity={0.75}>
-                <Text style={styles.detailReviewScore2}>{averageRating.toFixed(1)}</Text>
-                <View style={styles.detailReviewMid2}>
-                  <View style={styles.detailReviewStarsRow2}>
-                    {Array(fullStars).fill(0).map((_, i) => <Ionicons key={`f${i}`} name="star" size={12} color="#FFB800" />)}
-                    {hasHalf && <Ionicons name="star-half" size={12} color="#FFB800" />}
-                    {Array(emptyStars).fill(0).map((_, i) => <Ionicons key={`e${i}`} name="star-outline" size={12} color="#FFB800" />)}
+                {/* The score and count are already in the header meta a few rows
+                    up. Repeating them here spent the section on nothing; what
+                    cannot be seen anywhere else is what someone actually said. */}
+                {latestReview ? (
+                  <View style={styles.detailLatestReview}>
+                    <View style={styles.detailLatestReviewStars}>
+                      {Array(5).fill(0).map((_, i) => (
+                        <Ionicons
+                          key={i}
+                          name={i < Math.round(latestReview.rating || 0) ? 'star' : 'star-outline'}
+                          size={11}
+                          color="#FFB800"
+                        />
+                      ))}
+                      <Text style={styles.detailLatestReviewAuthor} numberOfLines={1}>
+                        {latestReview.user?.name || 'Anonymous'}
+                      </Text>
+                    </View>
+                    <Text style={styles.detailLatestReviewText} numberOfLines={3}>
+                      {latestReview.comment}
+                    </Text>
                   </View>
-                  <Text style={styles.detailReviewCountLabel2}>{reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}</Text>
-                </View>
+                ) : (
+                  <View style={styles.detailLatestReview}>
+                    <Text style={styles.detailReviewScore2}>{averageRating.toFixed(1)}</Text>
+                    <Text style={styles.detailReviewCountLabel2}>
+                      {reviewCount} {reviewCount === 1 ? 'rating' : 'ratings'}, no words yet
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.detailReviewViewAllBtn2}>
                   <Text style={styles.detailReviewViewAllText2}>View all</Text>
                   <Ionicons name="chevron-forward" size={14} color={colors.accent} />
@@ -6635,15 +6641,6 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
                   <Text style={styles.detailFlatCountBadgeText}>{pinReports.length}</Text>
                 </View>
               )}
-              <TouchableOpacity
-                onPress={handleAddReportFromPin}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={styles.detailFlatLabelBtn}
-              >
-                <Ionicons name="add" size={12} color={colors.textSecondary} />
-                <Text style={styles.detailFlatLabelBtnText}>Add</Text>
-              </TouchableOpacity>
             </View>
               {pinReports.length === 0 ? (
                 <View style={styles.detailFlatEmptyRow}>
