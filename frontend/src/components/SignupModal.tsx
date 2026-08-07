@@ -51,7 +51,7 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
     animateIn,
     close: animateAndClose,
     runAfterClose,
-  } = useSheetModal({ onClose });
+  } = useSheetModal({ visible, onClose });
 
   const emailInputRef = useRef<TextInput>(null);
   const nameInputRef = useRef<TextInput>(null);

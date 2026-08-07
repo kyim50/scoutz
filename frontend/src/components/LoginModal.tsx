@@ -46,7 +46,7 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
     animateIn,
     close: animateAndClose,
     runAfterClose,
-  } = useSheetModal({ onClose });
+  } = useSheetModal({ visible, onClose });
 
   const identifierInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
