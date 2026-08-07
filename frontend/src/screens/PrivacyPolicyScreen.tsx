@@ -9,7 +9,7 @@ interface PrivacyPolicyScreenProps {
   navigation: any;
 }
 
-const APP_NAME = 'Traverse';
+const APP_NAME = 'Cite';
 
 export default function PrivacyPolicyScreen({ navigation }: PrivacyPolicyScreenProps) {
   const insets = useSafeAreaInsets();

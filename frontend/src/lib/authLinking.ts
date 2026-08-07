@@ -7,8 +7,8 @@
  * used instead, which returns the session directly in the redirect URL.
  *
  * Supabase has shipped both shapes over time, so both are handled:
- *   traverse://auth/callback#access_token=...&refresh_token=...&type=recovery
- *   traverse://auth/callback?access_token=...&refresh_token=...&type=recovery
+ *   cite://auth/callback#access_token=...&refresh_token=...&type=recovery
+ *   cite://auth/callback?access_token=...&refresh_token=...&type=recovery
  */
 
 export interface AuthRedirect {

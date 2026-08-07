@@ -1,4 +1,4 @@
-# Traverse - Frontend (React Native)
+# Cite - Frontend (React Native)
 
 ## ✨ Fully Implemented Features
 

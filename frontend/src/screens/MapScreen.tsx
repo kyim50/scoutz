@@ -4262,7 +4262,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       `📍 ${selectedPin.title}`,
       typeLabel,
       selectedPin.description ? selectedPin.description.substring(0, 100) : null,
-      `View on Traverse: ${deepLink}`,
+      `View on Cite: ${deepLink}`,
     ].filter(Boolean).join('\n');
     try {
       await Share.share({ message, title: selectedPin.title, url: deepLink });

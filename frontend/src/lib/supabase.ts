@@ -75,5 +75,5 @@ export async function getAccessToken(): Promise<string | null> {
 export function getSupabaseRedirectUrl(): string {
   const hosted = process.env.EXPO_PUBLIC_SUPABASE_REDIRECT_URL ?? '';
   if (hosted && hosted.startsWith('http')) return hosted.trim();
-  return 'traverse://auth/callback';
+  return 'cite://auth/callback';
 }

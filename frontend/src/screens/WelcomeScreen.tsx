@@ -372,7 +372,7 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
           </TouchableOpacity>
 
           <Text style={styles.termsText}>
-            By continuing, you agree to Traverse's{' '}
+            By continuing, you agree to Cite's{' '}
             <Text
               style={styles.termsLink}
               onPress={() => navigation.navigate('TermsOfService')}

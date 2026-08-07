@@ -9,7 +9,7 @@ interface TermsOfServiceScreenProps {
   navigation: any;
 }
 
-const APP_NAME = 'Traverse';
+const APP_NAME = 'Cite';
 
 export default function TermsOfServiceScreen({ navigation }: TermsOfServiceScreenProps) {
   const insets = useSafeAreaInsets();

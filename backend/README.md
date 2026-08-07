@@ -27,11 +27,11 @@ Required environment variables:
 
 **Supabase magic link (app uses this when `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY` are set):**
 - Supabase sends the email. Clicking the link verifies and opens the app; session is stored so opening the app again also logs you in.
-- In Supabase Dashboard → **Authentication** → **URL Configuration**, add `traverse://auth/callback` to **Redirect URLs**.
+- In Supabase Dashboard → **Authentication** → **URL Configuration**, add `cite://auth/callback` to **Redirect URLs**.
 - On iOS the link often opens the app without the token (fragment stripped). To fix: host `docs/supabase-auth-redirect.html` at a URL, add that URL to Supabase Redirect URLs, and set `EXPO_PUBLIC_SUPABASE_REDIRECT_URL` in the frontend `.env`. The page redirects instantly to the app with the token.
 
 Optional (if not using Supabase magic link – backend sends email):
-- `SMTP_*` - To send magic link emails from the backend. `MAGIC_LINK_APP_SCHEME` (default `traverse`), `SMTP_FROM`, `MAGIC_LINK_BASE_URL`.
+- `SMTP_*` - To send magic link emails from the backend. `MAGIC_LINK_APP_SCHEME` (default `cite`), `SMTP_FROM`, `MAGIC_LINK_BASE_URL`.
 
 ### 3. Database Setup
 
