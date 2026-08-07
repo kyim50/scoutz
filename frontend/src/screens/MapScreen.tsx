@@ -25,7 +25,7 @@ import MapboxGL from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import BottomSheet, { BottomSheetFlatList, BottomSheetScrollView, useBottomSheetSpringConfigs } from '@gorhom/bottom-sheet';
-import Reanimated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolation, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
+import Reanimated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolation, useAnimatedReaction, runOnJS, FadeInDown, FadeOutDown, Easing as ReanimatedEasing } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { spacing, typography, borderRadius, shadows } from '../constants/theme';
 import { MAPBOX_STYLE_STANDARD, MAPBOX_TOKEN } from '../constants/map';
@@ -2821,20 +2821,26 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
           zIndex: 1001,
         },
         coachmarkCard: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.sm,
           backgroundColor: colors.surface,
           borderRadius: borderRadius.lg,
-          borderWidth: 1,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
-          paddingHorizontal: spacing.md,
+          paddingHorizontal: spacing.sm + 2,
           paddingVertical: spacing.sm,
           ...shadows.lg,
         },
-        coachmarkTopRow: {
-          flexDirection: 'row',
+        coachmarkIcon: {
+          width: 34,
+          height: 34,
+          borderRadius: borderRadius.round,
+          backgroundColor: colors.accentTint,
           alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: spacing.xs,
+          justifyContent: 'center',
         },
+        coachmarkBody: { flex: 1, gap: 1 },
         coachmarkTitle: {
           ...typography.bodySmallSemibold,
           color: colors.text,
@@ -2842,14 +2848,14 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
         coachmarkText: {
           ...typography.caption,
           color: colors.textSecondary,
-          marginBottom: spacing.sm,
         },
         coachmarkButton: {
-          alignSelf: 'flex-start',
           backgroundColor: colors.interactiveBg,
           borderRadius: borderRadius.round,
           paddingHorizontal: spacing.md,
-          paddingVertical: 7,
+          // 36 keeps the row compact while staying a comfortable target.
+          minHeight: 36,
+          justifyContent: 'center',
         },
         coachmarkButtonText: {
           ...typography.captionMedium,
@@ -3797,6 +3803,11 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       setSearching(false);
     }
   };
+
+  const dismissCoachmark = useCallback(() => {
+    AsyncStorage.setItem(MAP_LONG_PRESS_HINT_KEY, 'true').catch(() => {});
+    setShowLongPressCoachmark(false);
+  }, []);
 
   const handleQuickAction = async (type: string) => {
     // Navigation-only actions
@@ -6900,33 +6911,35 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       )}
 
       {showLongPressCoachmark && !isNavigating && !selectedPin && !selectedPoi && sheetContent === 'search' && (
-        <View style={[styles.coachmarkContainer, { bottom: sheetPeek - 4 }]}>
+        // Sits clear of the sheet rather than against it, and inset from the
+        // edges so it reads as a hint floating over the map rather than a bar
+        // attached to the sheet.
+        <Reanimated.View
+          entering={FadeInDown.duration(320).easing(ReanimatedEasing.out(ReanimatedEasing.quad))}
+          exiting={FadeOutDown.duration(180)}
+          style={[styles.coachmarkContainer, { bottom: sheetPeek + spacing.md }]}
+        >
           <View style={styles.coachmarkCard}>
-            <View style={styles.coachmarkTopRow}>
-              <Text style={styles.coachmarkTitle}>Drop your first pin</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  AsyncStorage.setItem(MAP_LONG_PRESS_HINT_KEY, 'true').catch(() => {});
-                  setShowLongPressCoachmark(false);
-                }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
+            <View style={styles.coachmarkIcon}>
+              <Ionicons name="add-circle-outline" size={18} color={colors.accent} />
             </View>
-            <Text style={styles.coachmarkText}>Long press anywhere on the map to place a pin, event, or report. You can also tap the <Text style={{ fontWeight: '600', color: colors.text }}>+</Text> button beside the search bar.</Text>
+            <View style={styles.coachmarkBody}>
+              <Text style={styles.coachmarkTitle}>Drop your first pin</Text>
+              <Text style={styles.coachmarkText}>
+                Long press anywhere on the map to add a pin, event or report.
+              </Text>
+            </View>
             <TouchableOpacity
               style={styles.coachmarkButton}
               activeOpacity={0.8}
-              onPress={() => {
-                AsyncStorage.setItem(MAP_LONG_PRESS_HINT_KEY, 'true').catch(() => {});
-                setShowLongPressCoachmark(false);
-              }}
+              onPress={dismissCoachmark}
+              accessibilityRole="button"
+              accessibilityLabel="Got it, dismiss this tip"
             >
               <Text style={styles.coachmarkButtonText}>Got it</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Reanimated.View>
       )}
 
       {!isNavigating && !previewImageUri && (
