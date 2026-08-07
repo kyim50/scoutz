@@ -262,7 +262,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   }, [api]);
 
   return (
-    <AlertContext.Provider value={{ showAlert, showToast }}>
+    <AlertContext.Provider value={api}>
       {children}
       <ThemedAlertModal
         visible={!!alert}
