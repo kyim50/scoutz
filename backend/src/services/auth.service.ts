@@ -120,6 +120,11 @@ export class AuthService {
       options: {
         // Read back in findOrCreateUserFromSupabaseAuth when the app row is created.
         data: { name: data.name.trim(), username },
+        // Without this the confirmation link lands on the project's Site URL
+        // rather than the app, so tapping it appears to do nothing at all.
+        emailRedirectTo: process.env.EMAIL_CONFIRM_REDIRECT_URL
+          || process.env.PASSWORD_RESET_REDIRECT_URL
+          || undefined,
       },
     });
 

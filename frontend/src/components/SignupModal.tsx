@@ -16,6 +16,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useUsernameAvailability } from '../hooks/useUsernameAvailability';
 import { spacing, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
@@ -39,6 +40,7 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   const navigation = useNavigation<any>();
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const { signup } = useAuth();
+  const usernameCheck = useUsernameAvailability(username);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -61,11 +63,35 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
 
   const inputRefs = [emailInputRef, nameInputRef, usernameInputRef, passwordInputRef];
 
-  const animateAndClose = () => {
+  /**
+   * Work queued to run once this modal is fully gone.
+   *
+   * Presenting an alert while this modal is still dismissing puts two native
+   * modals on screen at once, which on iOS leaves the app looking frozen —
+   * the sheet disappears but an invisible modal keeps swallowing every touch.
+   */
+  const afterCloseRef = useRef<(() => void) | null>(null);
+
+  const runAfterClose = () => {
+    const fn = afterCloseRef.current;
+    afterCloseRef.current = null;
+    fn?.();
+  };
+
+  const animateAndClose = (after?: () => void) => {
+    // Guarded because this is also used directly as an onPress handler, which
+    // would otherwise hand us a touch event to "call" after dismissal.
+    afterCloseRef.current = typeof after === 'function' ? after : null;
     Animated.parallel([
       Animated.timing(backdropAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
       Animated.timing(sheetAnim, { toValue: 80, duration: 200, useNativeDriver: true }),
-    ]).start(() => onClose());
+    ]).start(() => {
+      onClose();
+      // iOS fires Modal.onDismiss once the native modal is actually gone, which
+      // is the only reliable "safe to present another" signal. Android has no
+      // such window, so run it here instead.
+      if (Platform.OS !== 'ios') runAfterClose();
+    });
   };
 
   useEffect(() => {
@@ -193,6 +219,15 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
           color: colors.textMuted,
           fontSize: 12,
         },
+        hintRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: spacing.xs,
+          // Reserved so the layout doesn't jump as the hint appears and changes.
+          minHeight: 18,
+        },
+        hintText: { fontSize: 13, color: colors.textSecondary, flexShrink: 1 },
         bottom: { marginTop: 'auto', paddingBottom: spacing.sm },
         actionButton: {
           height: 52,
@@ -262,7 +297,16 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
       keyboardType: 'default' as const,
       autoCapitalize: 'none' as const,
       secure: false,
-      valid: username.trim().length >= 3,
+      // Availability is checked live, so a taken name can no longer pass this
+      // step and fail at submit after everything else has been entered.
+      valid: usernameCheck.canProceed,
+      hint: usernameCheck.message,
+      hintTone:
+        usernameCheck.status === 'available'
+          ? ('good' as const)
+          : usernameCheck.status === 'taken' || usernameCheck.status === 'invalid'
+            ? ('bad' as const)
+            : ('neutral' as const),
     },
     {
       key: 'password',
@@ -278,7 +322,9 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
     },
   ];
 
-  const currentStep = step < steps.length ? steps[step] : null;
+  const currentStep = (step < steps.length ? steps[step] : null) as
+    | (typeof steps)[number] & { hint?: string | null; hintTone?: 'good' | 'bad' | 'neutral' }
+    | null;
 
   const handleSignup = async () => {
     if (!email.trim() || !name.trim() || !username.trim() || password.length < 8) {
@@ -293,13 +339,18 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
         name.trim(),
         username.trim()
       );
-      animateAndClose();
-      if (requiresEmailConfirmation) {
-        showAlert(
-          'Confirm your email',
-          `We sent a confirmation link to ${email.trim()}. Tap it, then log in.`
-        );
-      }
+
+      const address = email.trim();
+      // Queued rather than shown inline — see animateAndClose.
+      animateAndClose(
+        requiresEmailConfirmation
+          ? () =>
+              showAlert(
+                'Confirm your email',
+                `We sent a link to ${address}. Tap it to activate your account, then come back and log in.`
+              )
+          : undefined
+      );
     } catch (error: any) {
       showAlert('Signup Failed', error?.message ?? 'Could not create account. Try again.');
     } finally {
@@ -309,10 +360,18 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
 
   const handleNext = async () => {
     if (!currentStep?.valid) {
-      if (currentStep?.key === 'email') showToast('Please enter a valid email', 'error');
-      else if (currentStep?.key === 'username') showToast('Username must be at least 3 characters', 'error');
-      else if (currentStep?.key === 'password') showToast('Password must be at least 8 characters', 'error');
-      else showToast('Please fill in this field', 'error');
+      if (currentStep?.key === 'username') {
+        // Say which of the several username problems it actually is.
+        showToast(usernameCheck.message ?? 'Pick a username', 'error');
+      } else if (currentStep?.key === 'email') {
+        showToast('Please enter a valid email', 'error');
+      } else if (currentStep?.key === 'name') {
+        showToast('Please enter your name', 'error');
+      } else if (currentStep?.key === 'password') {
+        showToast('Password must be at least 8 characters', 'error');
+      } else {
+        showToast('Please fill in this field', 'error');
+      }
       return;
     }
     if (step < steps.length - 1) {
@@ -341,7 +400,14 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   const sheetTranslateY = sheetAnim;
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onShow={handleShow}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onShow={handleShow}
+      onDismiss={runAfterClose}
+    >
       <View style={{ flex: 1 }}>
         {/* Dim overlay — pointer-events none so touches pass through */}
         <Animated.View
@@ -371,7 +437,7 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
         )}
 
         {/* Flexible dismiss area above the sheet */}
-        <Pressable style={{ flex: 1 }} onPress={animateAndClose} />
+        <Pressable style={{ flex: 1 }} onPress={() => animateAndClose()} />
 
         {/* Sheet container anchored to the bottom; keyboardOffset raises the sheet
             by the keyboard height so its bottom sits flush with the keyboard. */}
@@ -449,6 +515,43 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
                   onSubmitEditing={handleNext}
                 />
               )}
+
+              {/* Live feedback so a problem is visible on the step that caused
+                  it, rather than surfacing as a failure at submit. */}
+              {currentStep?.hint ? (
+                <View style={styles.hintRow}>
+                  {currentStep.hintTone === 'neutral' && usernameCheck.status === 'checking' ? (
+                    <ActivityIndicator size="small" color={colors.textMuted} />
+                  ) : (
+                    <Ionicons
+                      name={
+                        currentStep.hintTone === 'good'
+                          ? 'checkmark-circle'
+                          : currentStep.hintTone === 'bad'
+                            ? 'close-circle'
+                            : 'information-circle-outline'
+                      }
+                      size={15}
+                      color={
+                        currentStep.hintTone === 'good'
+                          ? colors.success
+                          : currentStep.hintTone === 'bad'
+                            ? colors.error
+                            : colors.textMuted
+                      }
+                    />
+                  )}
+                  <Text
+                    style={[
+                      styles.hintText,
+                      currentStep.hintTone === 'good' && { color: colors.success },
+                      currentStep.hintTone === 'bad' && { color: colors.error },
+                    ]}
+                  >
+                    {currentStep.hint}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.bottom}>
