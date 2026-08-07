@@ -109,14 +109,25 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
           backgroundColor: colors.textMuted,
         },
         dotActive: { backgroundColor: colors.text },
-        intro: { fontSize: 15, color: colors.textSecondary, marginBottom: spacing.xs },
+        // Eyebrow: small, uppercase and tracked out, so it reads as a label
+        // for the question below rather than competing with it.
+        intro: {
+          fontSize: 12,
+          fontWeight: '600',
+          letterSpacing: 1.1,
+          textTransform: 'uppercase',
+          color: colors.textMuted,
+          marginBottom: spacing.xs,
+        },
         title: {
-          fontSize: 30,
+          fontSize: 32,
           fontWeight: '700',
           color: colors.text,
-          letterSpacing: -0.6,
-          lineHeight: 36,
+          // Large display text needs negative tracking or it reads loose.
+          letterSpacing: -0.9,
+          lineHeight: 38,
           marginBottom: spacing.md,
+          maxWidth: 320,
         },
         fieldWrap: { marginBottom: spacing.sm },
         input: {
@@ -158,7 +169,7 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
           justifyContent: 'center',
         },
         actionEnabled: { backgroundColor: colors.interactiveBg },
-        actionText: { fontSize: 20, color: colors.textMuted, fontWeight: '700' },
+        actionText: { fontSize: 17, color: colors.textMuted, fontWeight: '600', letterSpacing: -0.2 },
         actionTextEnabled: { color: colors.interactiveText },
         footer: {
           flexDirection: 'row',

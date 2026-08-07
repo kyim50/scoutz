@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
+  Keyboard,
   View,
   Text,
   StyleSheet,
@@ -13,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useUsernameAvailability } from '../hooks/useUsernameAvailability';
+import ConfirmEmailStep from './ConfirmEmailStep';
 import Reanimated from 'react-native-reanimated';
 import { useSheetModal } from '../hooks/useSheetModal';
 import { spacing, borderRadius } from '../constants/theme';
@@ -38,6 +40,7 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const navigation = useNavigation<any>();
   const { signup } = useAuth();
   const usernameCheck = useUsernameAvailability(username);
@@ -68,6 +71,7 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
       setEmail('');
       setPassword('');
       setShowPassword(false);
+      setAwaitingConfirmation(false);
     }
   }, [visible]);
 
@@ -119,14 +123,25 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
           backgroundColor: colors.textMuted,
         },
         dotActive: { backgroundColor: colors.text },
-        intro: { fontSize: 15, color: colors.textSecondary, marginBottom: spacing.xs },
+        // Eyebrow: small, uppercase and tracked out, so it reads as a label
+        // for the question below rather than competing with it.
+        intro: {
+          fontSize: 12,
+          fontWeight: '600',
+          letterSpacing: 1.1,
+          textTransform: 'uppercase',
+          color: colors.textMuted,
+          marginBottom: spacing.xs,
+        },
         title: {
-          fontSize: 30,
+          fontSize: 32,
           fontWeight: '700',
           color: colors.text,
-          letterSpacing: -0.6,
-          lineHeight: 36,
+          // Large display text needs negative tracking or it reads loose.
+          letterSpacing: -0.9,
+          lineHeight: 38,
           marginBottom: spacing.md,
+          maxWidth: 320,
         },
         fieldWrap: { marginBottom: spacing.sm },
         input: {
@@ -184,7 +199,7 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
           justifyContent: 'center',
         },
         actionEnabled: { backgroundColor: colors.interactiveBg },
-        actionText: { fontSize: 20, color: colors.textMuted, fontWeight: '700' },
+        actionText: { fontSize: 17, color: colors.textMuted, fontWeight: '600', letterSpacing: -0.2 },
         actionTextEnabled: { color: colors.interactiveText },
         termsText: {
           marginTop: spacing.xs + 2,
@@ -287,22 +302,28 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
         username.trim()
       );
 
-      const address = email.trim();
-      // Queued rather than shown inline — see animateAndClose.
-      animateAndClose(
-        requiresEmailConfirmation
-          ? () =>
-              showAlert(
-                'Confirm your email',
-                `We sent a link to ${address}. Tap it to activate your account, then come back and log in.`
-              )
-          : undefined
-      );
+      if (requiresEmailConfirmation) {
+        // Stay in the flow rather than dismissing to an alert. The account
+        // exists but has no session yet, so there is nowhere to send them —
+        // and an alert over a closing sheet takes away the address they need
+        // to go and check. Confirming comes back as a deep link, which
+        // AuthContext turns into a session.
+        Keyboard.dismiss();
+        setAwaitingConfirmation(true);
+        return;
+      }
+
+      animateAndClose();
     } catch (error: any) {
       showAlert('Signup Failed', error?.message ?? 'Could not create account. Try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  /** Re-runs signup so Supabase issues a fresh confirmation email. */
+  const handleResend = async () => {
+    await signup(email.trim(), password, name.trim(), username.trim());
   };
 
   const handleNext = async () => {
@@ -329,6 +350,12 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   };
 
   const handleBack = () => {
+    // Once the account exists there is nothing to go back to — the earlier
+    // steps would just re-submit details that are already registered.
+    if (awaitingConfirmation) {
+      animateAndClose();
+      return;
+    }
     if (step > 0) {
       setStep(step - 1);
     } else {
@@ -384,11 +411,26 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
                 <Ionicons name="chevron-back" size={22} color={colors.text} />
               </TouchableOpacity>
               <View style={styles.dotRow}>
-                {steps.map((_, idx) => (
-                  <View key={idx} style={[styles.dot, idx <= step && styles.dotActive]} />
+                {[...steps, { key: 'confirm' }].map((_, idx) => (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.dot,
+                      (awaitingConfirmation || idx <= step) && styles.dotActive,
+                    ]}
+                  />
                 ))}
               </View>
             </View>
+
+            {awaitingConfirmation ? (
+              <ConfirmEmailStep
+                email={email.trim()}
+                onResend={handleResend}
+                onBackToLogin={() => animateAndClose(onSwitchToLogin)}
+              />
+            ) : (
+              <>
 
             <Text style={styles.intro}>{currentStep?.intro}</Text>
             <Text style={styles.title}>{currentStep?.title}</Text>
@@ -522,6 +564,8 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
                 </TouchableOpacity>
               </View>
             </View>
+            </>
+            )}
           </View>
 
           {/* Covers the space the keyboard vacates, positioned absolutely so it
