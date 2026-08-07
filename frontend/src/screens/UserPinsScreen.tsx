@@ -254,16 +254,6 @@ export default function UserPinsScreen({ navigation }: UserPinsScreenProps) {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={s.container}>
-        <SkeletonList count={5} style={{ paddingTop: spacing.md }}>
-            {() => <CardSkeleton lines={2} hasFooter style={{ marginHorizontal: spacing.md }} />}
-          </SkeletonList>
-      </View>
-    );
-  }
-
   return (
     <View style={s.container}>
       <View style={[s.header, { paddingTop: insets.top + spacing.sm }]}>
@@ -274,22 +264,28 @@ export default function UserPinsScreen({ navigation }: UserPinsScreenProps) {
         <View style={s.headerSpacer} />
       </View>
 
-      <FlatList
-        data={pins}
-        renderItem={renderPin}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={s.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-        ListEmptyComponent={
-          <View style={s.emptyState}>
-            <View style={s.emptyIcon}>
-              <Ionicons name="location-outline" size={28} color={colors.textMuted} />
+      {loading ? (
+        <SkeletonList count={5} style={{ paddingTop: spacing.md }}>
+          {() => <CardSkeleton lines={2} hasFooter style={{ marginHorizontal: spacing.md }} />}
+        </SkeletonList>
+      ) : (
+        <FlatList
+          data={pins}
+          renderItem={renderPin}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={s.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          ListEmptyComponent={
+            <View style={s.emptyState}>
+              <View style={s.emptyIcon}>
+                <Ionicons name="location-outline" size={28} color={colors.textMuted} />
+              </View>
+              <Text style={s.emptyTitle}>No pins yet</Text>
+              <Text style={s.emptySub}>Start contributing by adding pins to the map!</Text>
             </View>
-            <Text style={s.emptyTitle}>No pins yet</Text>
-            <Text style={s.emptySub}>Start contributing by adding pins to the map!</Text>
-          </View>
-        }
-      />
+          }
+        />
+      )}
     </View>
   );
 }

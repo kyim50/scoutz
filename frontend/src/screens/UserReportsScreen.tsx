@@ -273,16 +273,6 @@ export default function UserReportsScreen({ navigation }: UserReportsScreenProps
     );
   };
 
-  if (loading) {
-    return (
-      <View style={s.container}>
-        <SkeletonList count={5} style={{ paddingTop: spacing.md }}>
-            {() => <CardSkeleton lines={2} hasFooter style={{ marginHorizontal: spacing.md }} />}
-          </SkeletonList>
-      </View>
-    );
-  }
-
   return (
     <View style={s.container}>
       <View style={[s.header, { paddingTop: insets.top + spacing.sm }]}>
@@ -293,22 +283,28 @@ export default function UserReportsScreen({ navigation }: UserReportsScreenProps
         <View style={s.headerSpacer} />
       </View>
 
-      <FlatList
-        data={reports}
-        renderItem={renderReport}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={s.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />}
-        ListEmptyComponent={
-          <View style={s.emptyState}>
-            <View style={s.emptyIcon}>
-              <Ionicons name="flag-outline" size={28} color={colors.textMuted} />
+      {loading ? (
+        <SkeletonList count={5} style={{ paddingTop: spacing.md }}>
+          {() => <CardSkeleton lines={2} hasFooter style={{ marginHorizontal: spacing.md }} />}
+        </SkeletonList>
+      ) : (
+        <FlatList
+          data={reports}
+          renderItem={renderReport}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={s.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />}
+          ListEmptyComponent={
+            <View style={s.emptyState}>
+              <View style={s.emptyIcon}>
+                <Ionicons name="flag-outline" size={28} color={colors.textMuted} />
+              </View>
+              <Text style={s.emptyTitle}>No reports yet</Text>
+              <Text style={s.emptySub}>Reports you file will appear here. Tap a pin and add a report to get started.</Text>
             </View>
-            <Text style={s.emptyTitle}>No reports yet</Text>
-            <Text style={s.emptySub}>Reports you file will appear here. Tap a pin and add a report to get started.</Text>
-          </View>
-        }
-      />
+          }
+        />
+      )}
     </View>
   );
 }
