@@ -22,6 +22,7 @@ import { useGroup } from '../context/GroupContext';
 import { eventAPI, uploadAPI } from '../services/api';
 import RecurrenceSelector from '../components/RecurrenceSelector';
 import ImagePicker from '../components/ImagePicker';
+import { FormGroup, FormField } from '../components/FormSection';
 
 const EVENT_CATEGORIES = [
   { value: 'social', label: 'Social', icon: 'people-outline' },
@@ -208,14 +209,6 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
 
         scrollView: { flex: 1, paddingHorizontal: spacing.md },
 
-        section: { marginBottom: spacing.lg },
-        label: {
-          ...typography.captionMedium,
-          color: colors.textSecondary,
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-          marginBottom: spacing.xs,
-        },
 
         categoryRow: {
           flexDirection: 'row',
@@ -394,19 +387,6 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
           width: 48,
         },
 
-        groupHeader: {
-          marginTop: spacing.xs,
-          marginBottom: spacing.md,
-          gap: 2,
-        },
-        groupHeaderFirst: { marginTop: 0 },
-        groupTitle: { ...typography.bodySemibold, color: colors.text, fontSize: 15 },
-        groupSub: { ...typography.caption, color: colors.textMuted },
-        groupDivider: {
-          height: StyleSheet.hairlineWidth,
-          backgroundColor: colors.border,
-          marginBottom: spacing.lg,
-        },
         durationRow: {
           flexDirection: 'row',
           gap: spacing.xs,
@@ -634,234 +614,219 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
       </View>
 
       <ScrollView style={s.scrollView} contentContainerStyle={{ paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={s.section}>
-          <Text style={s.label}>Category</Text>
-          <View style={s.categoryRow}>
-            {EVENT_CATEGORIES.map((cat) => (
-              <SelectableChip
-                key={cat.value}
-                selected={category === cat.value}
-                style={[s.categoryChip, category === cat.value && s.categoryChipActive]}
-                onPress={() => setCategory(cat.value)}
-                accessibilityLabel={cat.label}
-              >
-                <Ionicons
-                  name={cat.icon as any}
-                  size={16}
-                  color={category === cat.value ? colors.accent : colors.text}
-                />
-                <Text style={[s.categoryChipText, category === cat.value && s.categoryChipTextActive]}>
-                  {cat.label}
-                </Text>
-              </SelectableChip>
-            ))}
-          </View>
-        </View>
-
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
-
-        <View style={[s.groupHeader, s.groupHeaderFirst]}>
-          <Text style={s.groupTitle}>What and when</Text>
-          <Text style={s.groupSub}>People need this to decide whether to come</Text>
-        </View>
-
-        <View style={s.section}>
-          <Text style={s.label}>Title</Text>
-          <TextInput
-            style={s.input}
-            placeholder="e.g., Study Session for Finals"
-            placeholderTextColor={colors.textMuted}
-            value={title}
-            onChangeText={setTitle}
-          />
-        </View>
-
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
-
-        <View style={s.section}>
-          <Text style={s.label}>Description</Text>
-          <TextInput
-            style={[s.input, s.textArea]}
-            placeholder="What's this event about?"
-            placeholderTextColor={colors.textMuted}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={4}
-          />
-        </View>
-
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
-
-        <View style={s.section}>
-          <Text style={s.label}>Date</Text>
-          <View style={s.calendarContainer}>
-            <View style={s.calendarHeader}>
-              <TouchableOpacity onPress={goToPrevMonth} style={s.calendarNav} activeOpacity={0.6}>
-                <Ionicons name="chevron-back" size={18} color={colors.text} />
-              </TouchableOpacity>
-              <Text style={s.calendarMonthText}>
-                {MONTH_NAMES[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
-              </Text>
-              <TouchableOpacity onPress={goToNextMonth} style={s.calendarNav} activeOpacity={0.6}>
-                <Ionicons name="chevron-forward" size={18} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            <View style={s.dayLabelsRow}>
-              {DAY_LABELS.map((label, i) => (
-                <Text key={i} style={s.dayLabel}>{label}</Text>
+        <FormGroup
+          title="What and when"
+          subtitle="People need this to decide whether to come"
+          first
+        >
+          <FormField label="Category">
+            <View style={s.categoryRow}>
+              {EVENT_CATEGORIES.map((cat) => (
+                <SelectableChip
+                  key={cat.value}
+                  selected={category === cat.value}
+                  style={[s.categoryChip, category === cat.value && s.categoryChipActive]}
+                  onPress={() => setCategory(cat.value)}
+                  accessibilityLabel={cat.label}
+                >
+                  <Ionicons
+                    name={cat.icon as any}
+                    size={16}
+                    color={category === cat.value ? colors.accent : colors.text}
+                  />
+                  <Text style={[s.categoryChipText, category === cat.value && s.categoryChipTextActive]}>
+                    {cat.label}
+                  </Text>
+                </SelectableChip>
               ))}
             </View>
-            {calendarDays.map((row, ri) => (
-              <View key={ri} style={s.calendarRow}>
-                {row.map((cell, ci) => {
-                  const selected = selectedDate && isSameDay(cell.date, selectedDate);
-                  const today = isToday(cell.date);
-                  const now = new Date();
-                  now.setHours(0, 0, 0, 0);
-                  const isPast = cell.inMonth && cell.date < now;
-                  return (
-                    <TouchableOpacity
-                      key={ci}
-                      style={s.dayCell}
-                      // Genuinely inert rather than a no-op handler, so it
-                      // stops reading as tappable to touch and to VoiceOver.
-                      disabled={isPast}
-                      onPress={() => {
-                        setSelectedDate(cell.date);
-                        if (cell.date.getMonth() !== calendarMonth.getMonth()) {
-                          setCalendarMonth(new Date(cell.date.getFullYear(), cell.date.getMonth(), 1));
-                        }
-                      }}
-                      activeOpacity={0.6}
-                      accessibilityRole="button"
-                      accessibilityState={{ disabled: isPast, selected }}
-                    >
-                      <View style={[
-                        s.dayCellInner,
-                        selected && s.dayCellSelected,
-                        !selected && today && s.dayCellToday,
-                      ]}>
-                        <Text style={[
-                          s.dayText,
-                          !cell.inMonth && s.dayTextOutside,
-                          selected && s.dayTextSelected,
-                          !selected && today && s.dayTextToday,
-                          isPast && !selected && s.dayTextPast,
-                        ]}>
-                          {cell.day}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ))}
-          </View>
-        </View>
+          </FormField>
 
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
-
-        <View style={s.section}>
-          <Text style={s.label}>When</Text>
-
-          {/* Start time */}
-          <View style={[s.timeRow, { marginBottom: spacing.sm }]}>
-            <Text style={s.timeRowLabel}>Starts</Text>
+          <FormField label="Title">
             <TextInput
-              style={s.timeInput}
-              placeholder="12"
+              style={s.input}
+              placeholder="e.g., Study Session for Finals"
               placeholderTextColor={colors.textMuted}
-              value={hour}
-              onChangeText={handleHourChange}
-              keyboardType="number-pad"
-              maxLength={2}
+              value={title}
+              onChangeText={setTitle}
             />
-            <Text style={s.timeColon}>:</Text>
-            <TextInput
-              style={s.timeInput}
-              placeholder="00"
-              placeholderTextColor={colors.textMuted}
-              value={minute}
-              onChangeText={handleMinuteChange}
-              onBlur={handleMinuteBlur}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
-            <View style={s.meridiemRow}>
-              <TouchableOpacity style={[s.meridiemButton, meridiem === 'AM' && s.meridiemButtonActive]} onPress={() => setMeridiem('AM')} activeOpacity={0.7}>
-                <Text style={[s.meridiemText, meridiem === 'AM' && s.meridiemTextActive]}>AM</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.meridiemButton, meridiem === 'PM' && s.meridiemButtonActive]} onPress={() => setMeridiem('PM')} activeOpacity={0.7}>
-                <Text style={[s.meridiemText, meridiem === 'PM' && s.meridiemTextActive]}>PM</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          </FormField>
 
-          {/* End time */}
-          <View style={s.timeRow}>
-            <Text style={s.timeRowLabel}>Ends</Text>
+          <FormField label="Description" hint="What should someone expect if they turn up?">
             <TextInput
-              style={s.timeInput}
-              placeholder="02"
+              style={[s.input, s.textArea]}
+              placeholder="What's this event about?"
               placeholderTextColor={colors.textMuted}
-              value={endHour}
-              onChangeText={handleEndHourChange}
-              keyboardType="number-pad"
-              maxLength={2}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={4}
             />
-            <Text style={s.timeColon}>:</Text>
-            <TextInput
-              style={s.timeInput}
-              placeholder="00"
-              placeholderTextColor={colors.textMuted}
-              value={endMinute}
-              onChangeText={handleEndMinuteChange}
-              onBlur={handleEndMinuteBlur}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
-            <View style={s.meridiemRow}>
-              <TouchableOpacity style={[s.meridiemButton, endMeridiem === 'AM' && s.meridiemButtonActive]} onPress={() => setEndMeridiem('AM')} activeOpacity={0.7}>
-                <Text style={[s.meridiemText, endMeridiem === 'AM' && s.meridiemTextActive]}>AM</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.meridiemButton, endMeridiem === 'PM' && s.meridiemButtonActive]} onPress={() => setEndMeridiem('PM')} activeOpacity={0.7}>
-                <Text style={[s.meridiemText, endMeridiem === 'PM' && s.meridiemTextActive]}>PM</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          </FormField>
 
-          {/* Sets the end from the start, which is how people actually think
-              about it — "about two hours", not a specific clock time. */}
-          <View style={s.durationRow}>
-            {[1, 2, 3].map((h) => (
-              <SelectableChip
-                key={h}
-                style={s.durationChip}
-                onPress={() => applyDuration(h)}
-                disabled={!hour.trim()}
-                accessibilityLabel={`Set end time to ${h} hour${h > 1 ? 's' : ''} after the start`}
-              >
-                <Text style={[s.durationChipText, !hour.trim() && s.durationChipTextOff]}>
-                  {h}h
+          <FormField label="Date">
+            <View style={s.calendarContainer}>
+              <View style={s.calendarHeader}>
+                <TouchableOpacity onPress={goToPrevMonth} style={s.calendarNav} activeOpacity={0.6}>
+                  <Ionicons name="chevron-back" size={18} color={colors.text} />
+                </TouchableOpacity>
+                <Text style={s.calendarMonthText}>
+                  {MONTH_NAMES[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
                 </Text>
-              </SelectableChip>
-            ))}
-          </View>
-
-          {/* The four controls above never restate what they add up to. */}
-          {whenSummary && (
-            <View style={s.whenSummary}>
-              <Ionicons name="calendar-outline" size={14} color={colors.accent} />
-              <Text style={s.whenSummaryText}>{whenSummary}</Text>
+                <TouchableOpacity onPress={goToNextMonth} style={s.calendarNav} activeOpacity={0.6}>
+                  <Ionicons name="chevron-forward" size={18} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <View style={s.dayLabelsRow}>
+                {DAY_LABELS.map((label, i) => (
+                  <Text key={i} style={s.dayLabel}>{label}</Text>
+                ))}
+              </View>
+              {calendarDays.map((row, ri) => (
+                <View key={ri} style={s.calendarRow}>
+                  {row.map((cell, ci) => {
+                    const selected = selectedDate && isSameDay(cell.date, selectedDate);
+                    const today = isToday(cell.date);
+                    const now = new Date();
+                    now.setHours(0, 0, 0, 0);
+                    const isPast = cell.inMonth && cell.date < now;
+                    return (
+                      <TouchableOpacity
+                        key={ci}
+                        style={s.dayCell}
+                        // Genuinely inert rather than a no-op handler, so it
+                        // stops reading as tappable to touch and to VoiceOver.
+                        disabled={isPast}
+                        onPress={() => {
+                          setSelectedDate(cell.date);
+                          if (cell.date.getMonth() !== calendarMonth.getMonth()) {
+                            setCalendarMonth(new Date(cell.date.getFullYear(), cell.date.getMonth(), 1));
+                          }
+                        }}
+                        activeOpacity={0.6}
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: isPast, selected }}
+                      >
+                        <View style={[
+                          s.dayCellInner,
+                          selected && s.dayCellSelected,
+                          !selected && today && s.dayCellToday,
+                        ]}>
+                          <Text style={[
+                            s.dayText,
+                            !cell.inMonth && s.dayTextOutside,
+                            selected && s.dayTextSelected,
+                            !selected && today && s.dayTextToday,
+                            isPast && !selected && s.dayTextPast,
+                          ]}>
+                            {cell.day}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ))}
             </View>
-          )}
-        </View>
+          </FormField>
 
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
+          <FormField label="When">
 
-        <View style={s.section}>
-          <View style={s.switchRow}>
+            {/* Start time */}
+            <View style={[s.timeRow, { marginBottom: spacing.sm }]}>
+              <Text style={s.timeRowLabel}>Starts</Text>
+              <TextInput
+                style={s.timeInput}
+                placeholder="12"
+                placeholderTextColor={colors.textMuted}
+                value={hour}
+                onChangeText={handleHourChange}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+              <Text style={s.timeColon}>:</Text>
+              <TextInput
+                style={s.timeInput}
+                placeholder="00"
+                placeholderTextColor={colors.textMuted}
+                value={minute}
+                onChangeText={handleMinuteChange}
+                onBlur={handleMinuteBlur}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+              <View style={s.meridiemRow}>
+                <TouchableOpacity style={[s.meridiemButton, meridiem === 'AM' && s.meridiemButtonActive]} onPress={() => setMeridiem('AM')} activeOpacity={0.7}>
+                  <Text style={[s.meridiemText, meridiem === 'AM' && s.meridiemTextActive]}>AM</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.meridiemButton, meridiem === 'PM' && s.meridiemButtonActive]} onPress={() => setMeridiem('PM')} activeOpacity={0.7}>
+                  <Text style={[s.meridiemText, meridiem === 'PM' && s.meridiemTextActive]}>PM</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* End time */}
+            <View style={s.timeRow}>
+              <Text style={s.timeRowLabel}>Ends</Text>
+              <TextInput
+                style={s.timeInput}
+                placeholder="02"
+                placeholderTextColor={colors.textMuted}
+                value={endHour}
+                onChangeText={handleEndHourChange}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+              <Text style={s.timeColon}>:</Text>
+              <TextInput
+                style={s.timeInput}
+                placeholder="00"
+                placeholderTextColor={colors.textMuted}
+                value={endMinute}
+                onChangeText={handleEndMinuteChange}
+                onBlur={handleEndMinuteBlur}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+              <View style={s.meridiemRow}>
+                <TouchableOpacity style={[s.meridiemButton, endMeridiem === 'AM' && s.meridiemButtonActive]} onPress={() => setEndMeridiem('AM')} activeOpacity={0.7}>
+                  <Text style={[s.meridiemText, endMeridiem === 'AM' && s.meridiemTextActive]}>AM</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.meridiemButton, endMeridiem === 'PM' && s.meridiemButtonActive]} onPress={() => setEndMeridiem('PM')} activeOpacity={0.7}>
+                  <Text style={[s.meridiemText, endMeridiem === 'PM' && s.meridiemTextActive]}>PM</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Sets the end from the start, which is how people actually think
+                about it — "about two hours", not a specific clock time. */}
+            <View style={s.durationRow}>
+              {[1, 2, 3].map((h) => (
+                <SelectableChip
+                  key={h}
+                  style={s.durationChip}
+                  onPress={() => applyDuration(h)}
+                  disabled={!hour.trim()}
+                  accessibilityLabel={`Set end time to ${h} hour${h > 1 ? 's' : ''} after the start`}
+                >
+                  <Text style={[s.durationChipText, !hour.trim() && s.durationChipTextOff]}>
+                    {h}h
+                  </Text>
+                </SelectableChip>
+              ))}
+            </View>
+
+            {/* The four controls above never restate what they add up to. */}
+            {whenSummary && (
+              <View style={s.whenSummary}>
+                <Ionicons name="calendar-outline" size={14} color={colors.accent} />
+                <Text style={s.whenSummaryText}>{whenSummary}</Text>
+              </View>
+            )}
+          </FormField>
+
+          <View>
+            <View style={s.switchRow}>
             <View style={{ flex: 1 }}>
               <Text style={s.switchLabel}>Recurring event</Text>
               <Text style={s.switchHelper}>Repeat on a schedule</Text>
@@ -889,57 +854,44 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
               <Text style={s.recurrenceButtonText}>{getRecurrenceText()}</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </TouchableOpacity>
-          )}
-        </View>
+            )}
+          </View>
+        </FormGroup>
 
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
+        <FormGroup title="Details" subtitle="All optional — add what you know">
+          <FormField label="Venue" hint="A room or building name saves people wandering.">
+            <TextInput
+              style={s.input}
+              placeholder="e.g., Main Library, Room 204"
+              placeholderTextColor={colors.textMuted}
+              value={locationName}
+              onChangeText={setLocationName}
+            />
+          </FormField>
 
-        <View style={s.groupDivider} />
-        <View style={s.groupHeader}>
-          <Text style={s.groupTitle}>Details</Text>
-          <Text style={s.groupSub}>All optional — add what you know</Text>
-        </View>
+          <FormField label="Max attendees">
+            <TextInput
+              style={s.input}
+              placeholder="Leave blank for unlimited"
+              placeholderTextColor={colors.textMuted}
+              value={maxAttendees}
+              onChangeText={setMaxAttendees}
+              keyboardType="number-pad"
+            />
+          </FormField>
 
-        <View style={s.section}>
-          <Text style={s.label}>Venue</Text>
-          <TextInput
-            style={s.input}
-            placeholder="e.g., Main Library, Room 204"
-            placeholderTextColor={colors.textMuted}
-            value={locationName}
-            onChangeText={setLocationName}
-          />
-        </View>
-
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
-
-        <View style={s.section}>
-          <Text style={s.label}>Max attendees</Text>
-          <TextInput
-            style={s.input}
-            placeholder="Leave blank for unlimited"
-            placeholderTextColor={colors.textMuted}
-            value={maxAttendees}
-            onChangeText={setMaxAttendees}
-            keyboardType="number-pad"
-          />
-        </View>
-
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
-
-        <View style={[s.section, { marginBottom: 0 }]}>
-          <Text style={s.label}>Cover image</Text>
-          <ImagePicker
-            onImagesSelected={setCoverImage}
-            maxImages={1}
-            existingImages={coverImage}
-            aspectRatio={[16, 9]}
-            allowsEditing={true}
-            // The section is one cover image; the default plural contradicted it.
-            addLabel="Add a cover image"
-          />
-        </View>
-
+          <FormField label="Cover image">
+            <ImagePicker
+              onImagesSelected={setCoverImage}
+              maxImages={1}
+              existingImages={coverImage}
+              aspectRatio={[16, 9]}
+              allowsEditing={true}
+              // The section is one cover image; the default plural contradicted it.
+              addLabel="Add a cover image"
+            />
+          </FormField>
+        </FormGroup>
       </ScrollView>
 
       <RecurrenceSelector

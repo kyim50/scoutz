@@ -21,6 +21,7 @@ import { useAlert } from '../context/AlertContext';
 import { useGroup } from '../context/GroupContext';
 import { pinAPI, uploadAPI } from '../services/api';
 import ImagePicker from '../components/ImagePicker';
+import { FormGroup, FormField } from '../components/FormSection';
 
 const PIN_TYPES = [
   { value: 'bathroom', label: 'Bathroom', icon: 'water-outline' },
@@ -87,33 +88,11 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
 
         scrollView: { flex: 1, paddingHorizontal: spacing.md },
 
-        section: { marginBottom: spacing.lg },
         charCount: {
           ...typography.caption,
           color: colors.textMuted,
           textAlign: 'right',
           marginTop: spacing.xs,
-        },
-        groupHeader: {
-          marginTop: spacing.xs,
-          marginBottom: spacing.md,
-          gap: 2,
-        },
-        groupHeaderFirst: { marginTop: 0 },
-        groupTitle: { ...typography.bodySemibold, color: colors.text, fontSize: 15 },
-        groupSub: { ...typography.caption, color: colors.textMuted },
-        groupDivider: {
-          height: StyleSheet.hairlineWidth,
-          backgroundColor: colors.border,
-          marginBottom: spacing.lg,
-        },
-        label: {
-          ...typography.bodySmallSemibold,
-          color: colors.textSecondary,
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-          fontSize: 11,
-          marginBottom: spacing.xs,
         },
 
         typeRow: {
@@ -319,131 +298,103 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[s.groupHeader, s.groupHeaderFirst]}>
-          <Text style={s.groupTitle}>What is it?</Text>
-          <Text style={s.groupSub}>Everyone sees this on the map</Text>
-        </View>
+        <FormGroup title="What is it?" subtitle="Everyone sees this on the map" first>
+          {/* The point was chosen two screens ago and not seen since. */}
+          {location && <LocationThumbnail lat={location.lat} lng={location.lng} />}
 
-        {/* The point was chosen two screens ago and not seen since. */}
-        {location && (
-          <View style={s.section}>
-            <LocationThumbnail lat={location.lat} lng={location.lng} />
-          </View>
-        )}
+          <FormField label="Type">
+            <View style={s.typeRow}>
+              {PIN_TYPES.map((pinType) => (
+                <SelectableChip
+                  key={pinType.value}
+                  selected={type === pinType.value}
+                  style={[s.typeChip, type === pinType.value && s.typeChipActive]}
+                  onPress={() => setType(pinType.value)}
+                  accessibilityLabel={pinType.label}
+                >
+                  <Ionicons
+                    name={pinType.icon as any}
+                    size={15}
+                    color={type === pinType.value ? colors.accent : colors.text}
+                  />
+                  <Text style={[s.typeChipText, type === pinType.value && s.typeChipTextActive]}>
+                    {pinType.label}
+                  </Text>
+                </SelectableChip>
+              ))}
+            </View>
+          </FormField>
 
-        <View style={s.section}>
-          <Text style={s.label}>Type</Text>
-          <View style={s.typeRow}>
-            {PIN_TYPES.map((pinType) => (
-              <SelectableChip
-                key={pinType.value}
-                selected={type === pinType.value}
-                style={[s.typeChip, type === pinType.value && s.typeChipActive]}
-                onPress={() => setType(pinType.value)}
-                accessibilityLabel={pinType.label}
-              >
-                <Ionicons
-                  name={pinType.icon as any}
-                  size={15}
-                  color={type === pinType.value ? colors.accent : colors.text}
-                />
-                <Text style={[s.typeChipText, type === pinType.value && s.typeChipTextActive]}>
-                  {pinType.label}
-                </Text>
-              </SelectableChip>
-            ))}
-          </View>
-        </View>
-
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.md }} />
-
-        <View style={s.section}>
-          <Text style={s.label}>Title</Text>
-          <TextInput
-            style={s.input}
-            placeholder="e.g., Library 3rd Floor Restroom"
-            placeholderTextColor={colors.textMuted}
-            value={title}
-            onChangeText={setTitle}
-            maxLength={80}
-          />
-          {title.length > 60 && (
-            // Only near the limit: a counter sitting at 0/80 from the start is
-            // noise on a field almost nobody fills.
-            <Text style={s.charCount}>{title.length}/80</Text>
-          )}
-        </View>
-
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.md }} />
-
-        <View style={s.section}>
-          <Text style={s.label}>Description (optional)</Text>
-          <TextInput
-            style={[s.input, s.textArea]}
-            placeholder="Add details to help others find it..."
-            placeholderTextColor={colors.textMuted}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={3}
-          />
-        </View>
-
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.md }} />
-
-        <View style={s.groupDivider} />
-        <View style={s.groupHeader}>
-          <Text style={s.groupTitle}>Help people find it</Text>
-          <Text style={s.groupSub}>All optional — add what you know</Text>
-        </View>
-
-        <View style={s.section}>
-          <Text style={s.label}>Building & floor</Text>
-          <View style={s.inputRow}>
+          <FormField label="Title">
             <TextInput
-              style={[s.input, s.inputHalf]}
-              placeholder="Building"
+              style={s.input}
+              placeholder="e.g., Library 3rd Floor Restroom"
               placeholderTextColor={colors.textMuted}
-              value={building}
-              onChangeText={setBuilding}
+              value={title}
+              onChangeText={setTitle}
+              maxLength={80}
             />
+            {title.length > 60 && (
+              // Only near the limit: a counter sitting at 0/80 from the start is
+              // noise on a field almost nobody fills.
+              <Text style={s.charCount}>{title.length}/80</Text>
+            )}
+          </FormField>
+
+          <FormField label="Description" hint="What makes this one worth knowing about?">
             <TextInput
-              style={[s.input, s.inputHalf]}
-              placeholder="Floor"
+              style={[s.input, s.textArea]}
+              placeholder="Add details to help others find it..."
               placeholderTextColor={colors.textMuted}
-              value={floor}
-              onChangeText={setFloor}
-              keyboardType="default"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={3}
             />
-          </View>
-        </View>
+          </FormField>
+        </FormGroup>
 
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.md }} />
+        <FormGroup title="Help people find it" subtitle="All optional — add what you know">
+          <FormField label="Building & floor">
+            <View style={s.inputRow}>
+              <TextInput
+                style={[s.input, s.inputHalf]}
+                placeholder="Building"
+                placeholderTextColor={colors.textMuted}
+                value={building}
+                onChangeText={setBuilding}
+              />
+              <TextInput
+                style={[s.input, s.inputHalf]}
+                placeholder="Floor"
+                placeholderTextColor={colors.textMuted}
+                value={floor}
+                onChangeText={setFloor}
+                keyboardType="default"
+              />
+            </View>
+          </FormField>
 
-        <View style={s.section}>
-          <Text style={s.label}>Access instructions</Text>
-          <TextInput
-            style={[s.input, s.textArea]}
-            placeholder="How to get there..."
-            placeholderTextColor={colors.textMuted}
-            value={accessNotes}
-            onChangeText={setAccessNotes}
-            multiline
-            numberOfLines={2}
-          />
-        </View>
+          <FormField label="Access instructions" hint="Door codes, which entrance, what floor to stop at.">
+            <TextInput
+              style={[s.input, s.textArea]}
+              placeholder="How to get there..."
+              placeholderTextColor={colors.textMuted}
+              value={accessNotes}
+              onChangeText={setAccessNotes}
+              multiline
+              numberOfLines={2}
+            />
+          </FormField>
 
-        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.md }} />
-
-        <View style={[s.section, { marginBottom: 0 }]}>
-          <Text style={s.label}>Photos</Text>
-          <ImagePicker
-            onImagesSelected={setImages}
-            maxImages={5}
-            existingImages={images}
-          />
-        </View>
-
+          <FormField label="Photos" hint="Up to five. The first one shows on the map.">
+              <ImagePicker
+                onImagesSelected={setImages}
+                maxImages={5}
+                existingImages={images}
+              />
+          </FormField>
+        </FormGroup>
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + spacing.md }]}>

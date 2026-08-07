@@ -21,6 +21,7 @@ import { useAlert } from '../context/AlertContext';
 import { useGroup } from '../context/GroupContext';
 import { reportAPI, uploadAPI } from '../services/api';
 import ImagePicker from '../components/ImagePicker';
+import { FormGroup, FormField, FormDivider } from '../components/FormSection';
 
 export type ReportType = 'hazard' | 'food_status' | 'campus_update' | 'safety' | 'accessibility' | 'general' | 'other';
 
@@ -327,26 +328,13 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
         },
         headerInfo: { flex: 1, alignItems: 'center' },
         headerTitle: { ...typography.h5, color: colors.text },
-        headerSubtitle: { ...typography.captionMedium, color: colors.textSecondary, marginTop: 1 },
+        headerSubtitle: { ...typography.captionBold, marginTop: 1, letterSpacing: 0.1 },
         headerSpacer: { width: 36, height: 36 },
 
         scrollView: { flex: 1, paddingHorizontal: spacing.md },
 
-        section: { marginBottom: spacing.lg },
-
-        label: {
-          ...typography.captionMedium,
-          color: colors.textSecondary,
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-          marginBottom: spacing.xs,
-        },
-
-        divider: {
-          height: StyleSheet.hairlineWidth,
-          backgroundColor: colors.borderLight,
-          marginBottom: spacing.lg,
-        },
+        /** Vertical rhythm between the disclosed signal fields. */
+        signalFields: { gap: 20, marginTop: 18 },
 
         // ── Pin context pill ──
         pinContextPill: {
@@ -410,7 +398,7 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
           paddingVertical: spacing.xs,
           paddingHorizontal: spacing.xs,
         },
-        charRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: spacing.xs },
+        charRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 },
         charCount: { ...typography.caption, color: colors.textMuted },
 
         footer: {
@@ -439,8 +427,6 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          paddingVertical: spacing.sm + 2,
-          marginBottom: spacing.sm,
         },
         discloseTextWrap: { flex: 1, gap: 2 },
         discloseTitle: { ...typography.bodySemibold, color: colors.text, fontSize: 15 },
@@ -460,9 +446,12 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
           flexDirection: 'row',
           alignItems: 'center',
           gap: 6,
-          marginBottom: spacing.md,
+          // Belongs to the chips above it, so it sits close to them and lets
+          // the group rhythm own the space below.
+          marginTop: 10,
         },
         lifetimeText: { ...typography.caption, color: colors.textMuted, flexShrink: 1 },
+        lifetimeStrong: { color: colors.textSecondary, fontWeight: '600' },
         submitHint: {
           ...typography.caption,
           color: colors.textMuted,
@@ -545,82 +534,81 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
           </View>
         )}
 
-        {/* Type */}
-        <View style={s.section}>
-          <Text style={s.label}>Type</Text>
-          <View style={s.typeRow}>
-            {REPORT_TYPES.map((t) => {
-              const active = type === t.value;
-              return (
-                <TouchableOpacity
-                  key={t.value}
-                  style={[s.typeChip, active && { backgroundColor: t.tint }]}
-                  onPress={() => {
-                    setType(t.value);
-                    setSubOption('');
-                    setOpenNow('');
-                    setCrowdLevel('');
-                    setPurchaseRequired('');
-                    setAccessibilityLevel('');
-                    setSafetyLevel('');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name={t.icon as any} size={15} color={active ? t.color : colors.textSecondary} />
-                  <Text style={[s.typeChipText, active && { color: t.color, fontWeight: '600' }]}>{t.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Expiry is the point of a report — it is what keeps it current
-              rather than permanent like a pin — and nothing said so. */}
-          <View style={s.lifetimeRow}>
-            <Ionicons name="time-outline" size={13} color={colors.textMuted} />
-            <Text style={s.lifetimeText}>
-              Stays on the map for {REPORT_LIFETIME[type] ?? '24 hours'}, longer if people reply.
-            </Text>
-          </View>
-        </View>
-
-        {/* Sub options */}
-        {subOptions.length > 0 && (
-          <>
-            <View style={s.divider} />
-            <View style={s.section}>
-              <Text style={s.label}>Details</Text>
-              <View style={s.chipRow}>
-                {subOptions.map((opt) => {
-                  const active = subOption === opt.value;
+        <FormGroup title="What are you reporting?" first>
+          <FormField label="Type">
+              <View style={s.typeRow}>
+                {REPORT_TYPES.map((t) => {
+                  const active = type === t.value;
                   return (
-                    <SelectableChip
-                      key={opt.value}
-                      selected={active}
-                      style={[s.chip, active && s.chipActive]}
-                      onPress={() => setSubOption(active ? '' : opt.value)}
-                      accessibilityLabel={opt.label}
+                    <TouchableOpacity
+                      key={t.value}
+                      style={[s.typeChip, active && { backgroundColor: t.tint }]}
+                      onPress={() => {
+                        setType(t.value);
+                        setSubOption('');
+                        setOpenNow('');
+                        setCrowdLevel('');
+                        setPurchaseRequired('');
+                        setAccessibilityLevel('');
+                        setSafetyLevel('');
+                      }}
+                      activeOpacity={0.7}
                     >
-                      <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                    </SelectableChip>
+                      <Ionicons name={t.icon as any} size={15} color={active ? t.color : colors.textSecondary} />
+                      <Text style={[s.typeChipText, active && { color: t.color, fontWeight: '600' }]}>{t.label}</Text>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
 
-              {/* Choosing "Other" with nowhere to say what is a dead end. */}
-              {subOption === 'other' && (
-                <TextInput
-                  style={s.otherInput}
-                  placeholder="What kind of thing?"
-                  placeholderTextColor={colors.textMuted}
-                  value={otherDetail}
-                  onChangeText={setOtherDetail}
-                  maxLength={60}
-                  autoFocus
-                />
-              )}
-            </View>
-          </>
-        )}
+              {/* Expiry is the point of a report — it is what keeps it current
+                  rather than permanent like a pin — and nothing said so. The icon
+                  carries the type's colour so the choice above is echoed here
+                  rather than the row reading as generic boilerplate. */}
+              <View style={s.lifetimeRow}>
+                <Ionicons name="time-outline" size={13} color={selectedTypeObj.color} />
+                <Text style={s.lifetimeText}>
+                  Stays on the map for{' '}
+                  <Text style={s.lifetimeStrong}>{REPORT_LIFETIME[type] ?? '24 hours'}</Text>, longer if
+                  people reply.
+                </Text>
+              </View>
+          </FormField>
+
+          {subOptions.length > 0 && (
+            <FormField label="Details" hint="Pick the closest — this is what people scan for.">
+                <View style={s.chipRow}>
+                  {subOptions.map((opt) => {
+                    const active = subOption === opt.value;
+                    return (
+                      <SelectableChip
+                        key={opt.value}
+                        selected={active}
+                        style={[s.chip, active && s.chipActive]}
+                        onPress={() => setSubOption(active ? '' : opt.value)}
+                        accessibilityLabel={opt.label}
+                      >
+                        <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
+                      </SelectableChip>
+                    );
+                  })}
+                </View>
+
+                {/* Choosing "Other" with nowhere to say what is a dead end. */}
+                {subOption === 'other' && (
+                  <TextInput
+                    style={s.otherInput}
+                    placeholder="What kind of thing?"
+                    placeholderTextColor={colors.textMuted}
+                    value={otherDetail}
+                    onChangeText={setOtherDetail}
+                    maxLength={60}
+                    autoFocus
+                  />
+                )}
+            </FormField>
+          )}
+        </FormGroup>
 
         {/* Signal fields — collapsed by default.
             Rendered flat, five groups of chips at identical weight read as a
@@ -628,7 +616,7 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
             for people who want to say more. */}
         {signalFields.length > 0 && (
           <>
-            <View style={s.divider} />
+            <FormDivider />
 
             <TouchableOpacity
               style={s.discloseRow}
@@ -654,124 +642,125 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
             </TouchableOpacity>
 
             {showMoreDetail && (
-              <>
+              <View style={s.signalFields}>
             {signalFields.includes('open_now') && (
-              <View style={s.section}>
-                <Text style={s.label}>Open now</Text>
-                <View style={s.chipRow}>
-                  {OPEN_NOW_OPTIONS.map((opt) => {
-                    const active = openNow === opt.value;
-                    return (
-                      <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setOpenNow(active ? '' : opt.value)} accessibilityLabel={opt.label}>
-                        <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                      </SelectableChip>
-                    );
-                  })}
-                </View>
-              </View>
+              <FormField label="Open now">
+                  <View style={s.chipRow}>
+                    {OPEN_NOW_OPTIONS.map((opt) => {
+                      const active = openNow === opt.value;
+                      return (
+                        <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setOpenNow(active ? '' : opt.value)} accessibilityLabel={opt.label}>
+                          <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
+                        </SelectableChip>
+                      );
+                    })}
+                  </View>
+              </FormField>
             )}
 
             {signalFields.includes('crowd_level') && (
-              <View style={s.section}>
-                <Text style={s.label}>Crowd level</Text>
-                <View style={s.chipRow}>
-                  {CROWD_LEVEL_OPTIONS.map((opt) => {
-                    const active = crowdLevel === opt.value;
-                    return (
-                      <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setCrowdLevel(active ? '' : opt.value)} accessibilityLabel={opt.label}>
-                        <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                      </SelectableChip>
-                    );
-                  })}
-                </View>
-              </View>
+              <FormField label="Crowd level">
+                  <View style={s.chipRow}>
+                    {CROWD_LEVEL_OPTIONS.map((opt) => {
+                      const active = crowdLevel === opt.value;
+                      return (
+                        <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setCrowdLevel(active ? '' : opt.value)} accessibilityLabel={opt.label}>
+                          <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
+                        </SelectableChip>
+                      );
+                    })}
+                  </View>
+              </FormField>
             )}
 
             {signalFields.includes('purchase_required') && (
-              <View style={s.section}>
-                <Text style={s.label}>Purchase required</Text>
-                <View style={s.chipRow}>
-                  {PURCHASE_REQUIRED_OPTIONS.map((opt) => {
-                    const active = purchaseRequired === opt.value;
-                    return (
-                      <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setPurchaseRequired(active ? '' : opt.value)} accessibilityLabel={opt.label}>
-                        <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                      </SelectableChip>
-                    );
-                  })}
-                </View>
-              </View>
+              <FormField label="Purchase required">
+                  <View style={s.chipRow}>
+                    {PURCHASE_REQUIRED_OPTIONS.map((opt) => {
+                      const active = purchaseRequired === opt.value;
+                      return (
+                        <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setPurchaseRequired(active ? '' : opt.value)} accessibilityLabel={opt.label}>
+                          <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
+                        </SelectableChip>
+                      );
+                    })}
+                  </View>
+              </FormField>
             )}
 
             {signalFields.includes('accessibility') && (
-              <View style={s.section}>
-                <Text style={s.label}>Accessibility</Text>
-                <View style={s.chipRow}>
-                  {ACCESSIBILITY_LEVEL_OPTIONS.map((opt) => {
-                    const active = accessibilityLevel === opt.value;
-                    return (
-                      <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setAccessibilityLevel(active ? '' : opt.value)} accessibilityLabel={opt.label}>
-                        <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                      </SelectableChip>
-                    );
-                  })}
-                </View>
-              </View>
+              <FormField label="Accessibility">
+                  <View style={s.chipRow}>
+                    {ACCESSIBILITY_LEVEL_OPTIONS.map((opt) => {
+                      const active = accessibilityLevel === opt.value;
+                      return (
+                        <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setAccessibilityLevel(active ? '' : opt.value)} accessibilityLabel={opt.label}>
+                          <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
+                        </SelectableChip>
+                      );
+                    })}
+                  </View>
+              </FormField>
             )}
 
             {signalFields.includes('safety') && (
-              <View style={s.section}>
-                <Text style={s.label}>Safety level</Text>
-                <View style={s.chipRow}>
-                  {SAFETY_LEVEL_OPTIONS.map((opt) => {
-                    const active = safetyLevel === opt.value;
-                    return (
-                      <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setSafetyLevel(active ? '' : opt.value)} accessibilityLabel={opt.label}>
-                        <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
-                      </SelectableChip>
-                    );
-                  })}
-                </View>
-              </View>
+              <FormField label="Safety level">
+                  <View style={s.chipRow}>
+                    {SAFETY_LEVEL_OPTIONS.map((opt) => {
+                      const active = safetyLevel === opt.value;
+                      return (
+                        <SelectableChip key={opt.value} selected={active} style={[s.chip, active && s.chipActive]} onPress={() => setSafetyLevel(active ? '' : opt.value)} accessibilityLabel={opt.label}>
+                          <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
+                        </SelectableChip>
+                      );
+                    })}
+                  </View>
+              </FormField>
             )}
-              </>
+              </View>
             )}
           </>
         )}
 
-        {/* Context */}
-        <View style={s.divider} />
-        <View style={s.section}>
-          <Text style={s.label}>What's happening?</Text>
-          <View style={s.inputWrapper}>
-            <TextInput
-              style={s.input}
-              placeholder={CONTEXT_PLACEHOLDERS[type]}
-              placeholderTextColor={colors.textMuted}
-              value={content}
-              onChangeText={setContent}
-              multiline
-              maxLength={200}
-            />
+        <FormGroup
+          title="In your words"
+          subtitle="One line is enough. This is what people read first."
+        >
+          {/* No field label: the group title already names this control, and
+              stacking "WHAT'S HAPPENING?" under "In your words" would be two
+              headings for one textarea. */}
+          <View>
+            <View style={s.inputWrapper}>
+              <TextInput
+                style={s.input}
+                placeholder={CONTEXT_PLACEHOLDERS[type]}
+                placeholderTextColor={colors.textMuted}
+                value={content}
+                onChangeText={setContent}
+                multiline
+                maxLength={200}
+              />
+            </View>
+            {content.length > 140 && (
+              // Only once the limit is in sight. A counter reading 0/200 on an
+              // untouched field is noise that says nothing.
+              <View style={s.charRow}>
+                <Text style={s.charCount}>{content.length}/200</Text>
+              </View>
+            )}
           </View>
-          <View style={s.charRow}>
-            <Text style={s.charCount}>{content.length}/200</Text>
-          </View>
-        </View>
 
-        {/* Photo */}
-        <View style={s.divider} />
-        <View style={[s.section, { marginBottom: 0 }]}>
-          <Text style={s.label}>Photo (optional)</Text>
-          <ImagePicker
-            onImagesSelected={setImageUris}
-            maxImages={1}
-            existingImages={[]}
-            aspectRatio={[4, 3]}
-            allowsEditing={true}
-            addButtonHeight={96}
-          />
-        </View>
+          <FormField label="Photo" hint="Optional — but a photo is what makes a report believable.">
+              <ImagePicker
+                onImagesSelected={setImageUris}
+                maxImages={1}
+                existingImages={[]}
+                aspectRatio={[4, 3]}
+                allowsEditing={true}
+                addButtonHeight={96}
+              />
+          </FormField>
+        </FormGroup>
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + spacing.md }]}>
