@@ -240,8 +240,14 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
         overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
         sheet: {
           backgroundColor: colors.surface,
-          borderTopLeftRadius: borderRadius.xl,
-          borderTopRightRadius: borderRadius.xl,
+          // 28 and a hairline edge to match the auth sheets — this was the one
+          // sheet in the app using a smaller radius and no border.
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderLeftWidth: StyleSheet.hairlineWidth,
+          borderRightWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
           paddingHorizontal: spacing.lg,
           paddingTop: spacing.sm,
           paddingBottom: Math.max(insets.bottom, spacing.lg),

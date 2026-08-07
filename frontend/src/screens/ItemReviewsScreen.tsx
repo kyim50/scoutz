@@ -263,13 +263,17 @@ export default function ItemReviewsScreen({ navigation, route }: ItemReviewsScre
           paddingHorizontal: spacing.md,
         },
         controlsScroll: {
-          paddingHorizontal: spacing.md,
+          // Breaks out of the parent's horizontal padding so the row scrolls
+          // edge to edge; the last chip then peeks off screen deliberately.
+          marginHorizontal: -spacing.md,
         },
         controlsRow: {
           flexDirection: 'row',
           alignItems: 'center',
           gap: spacing.sm,
-          paddingRight: spacing.md,
+          // Padding moves onto the content so the chips still line up with the
+          // page margin while the scroll itself spans the full width.
+          paddingHorizontal: spacing.md,
         },
         sortChip: {
           paddingVertical: spacing.sm,

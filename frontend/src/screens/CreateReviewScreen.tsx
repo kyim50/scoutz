@@ -194,7 +194,7 @@ export default function CreateReviewScreen({ navigation, route }: CreateReviewSc
   };
 
   return (
-    <KeyboardAvoidingView style={[s.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       {/* Header */}
       <View style={s.header}>
         <View style={s.headerSpacer} />

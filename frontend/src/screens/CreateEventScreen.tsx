@@ -368,6 +368,12 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
         footer: {
           paddingHorizontal: spacing.md,
           paddingTop: spacing.md,
+          // Opaque with a divider: the footer floats over the scroll view, so
+          // without these the content ran underneath the button and the two
+          // overlapped at the bottom of the list.
+          backgroundColor: colors.surface,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
         },
         createButton: {
           backgroundColor: colors.interactiveBg,
@@ -509,7 +515,7 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
   const selectedCategory = EVENT_CATEGORIES.find((c) => c.value === category);
 
   return (
-    <KeyboardAvoidingView style={[s.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={s.handleBar} />
       <View style={s.header}>
         <View style={s.headerSpacer} />
@@ -535,7 +541,7 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={s.scrollView} contentContainerStyle={{ paddingBottom: spacing.lg }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView style={s.scrollView} contentContainerStyle={{ paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={s.section}>
           <Text style={s.label}>Category</Text>
           <View style={s.categoryRow}>

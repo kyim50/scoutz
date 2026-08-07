@@ -157,6 +157,17 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
   const [safetyLevel, setSafetyLevel] = useState('');
   const [loading, setLoading] = useState(false);
 
+  /**
+   * The chips are real signal — "Busy right now" plus a crowd level says as
+   * much as a sentence would. Requiring free text on top meant a user could
+   * answer every structured question and still find submit greyed out, with
+   * nothing on screen explaining why.
+   */
+  const hasStructuredSignal = Boolean(
+    subOption || openNow || crowdLevel || purchaseRequired || accessibilityLevel || safetyLevel
+  );
+  const canSubmit = Boolean(content.trim()) || hasStructuredSignal;
+
   const subOptions = TYPE_SUBOPTIONS[type];
   const selectedTypeObj = REPORT_TYPES.find((t) => t.value === type)!;
   const signalFields = SIGNAL_FIELDS[type] ?? [];
@@ -375,8 +386,12 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
         footer: {
           paddingHorizontal: spacing.md,
           paddingTop: spacing.md,
+          // Opaque with a divider: the footer floats over the scroll view, so
+          // without these the content ran underneath the button and the two
+          // overlapped at the bottom of the list.
+          backgroundColor: colors.surface,
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.borderLight,
+          borderTopColor: colors.border,
         },
         submitButton: {
           backgroundColor: colors.interactiveBg,
@@ -387,15 +402,22 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
           justifyContent: 'center',
           gap: spacing.xs,
         },
-        submitButtonDisabled: { opacity: 0.35 },
+        submitButtonDisabled: { backgroundColor: colors.surfaceGray },
         submitButtonText: { ...typography.button, color: colors.interactiveText },
+        submitButtonTextDisabled: { color: colors.textMuted },
+        submitHint: {
+          ...typography.caption,
+          color: colors.textMuted,
+          textAlign: 'center',
+          marginBottom: spacing.sm,
+        },
       }),
     [colors]
   );
 
   if (!location) {
     return (
-      <View style={[s.container, { paddingTop: insets.top }]}>
+      <View style={s.container}>
         <View style={s.handleBar} />
         <View style={s.header}>
           <View style={s.headerSpacer} />
@@ -419,7 +441,7 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
   }
 
   return (
-    <KeyboardAvoidingView style={[s.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={s.handleBar} />
       <View style={s.header}>
         <View style={s.headerSpacer} />
@@ -454,7 +476,7 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
 
       <ScrollView
         style={s.scrollView}
-        contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: spacing.lg }}
+        contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: spacing.xxl }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -642,18 +664,30 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        {!canSubmit && (
+          <Text style={s.submitHint}>Pick a detail above or describe what&apos;s happening.</Text>
+        )}
         <TouchableOpacity
-          style={[s.submitButton, (loading || !content.trim()) && s.submitButtonDisabled]}
+          style={[s.submitButton, !canSubmit && s.submitButtonDisabled]}
           onPress={handleSubmit}
-          disabled={loading || !content.trim()}
+          disabled={loading || !canSubmit}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Submit report"
+          accessibilityState={{ disabled: !canSubmit }}
         >
           {loading ? (
-            <ActivityIndicator color={colors.interactiveText} />
+            <ActivityIndicator color={canSubmit ? colors.interactiveText : colors.textMuted} />
           ) : (
             <>
-              <Ionicons name="checkmark" size={18} color={colors.interactiveText} />
-              <Text style={s.submitButtonText}>Submit report</Text>
+              <Ionicons
+                name="checkmark"
+                size={18}
+                color={canSubmit ? colors.interactiveText : colors.textMuted}
+              />
+              <Text style={[s.submitButtonText, !canSubmit && s.submitButtonTextDisabled]}>
+                Submit report
+              </Text>
             </>
           )}
         </TouchableOpacity>

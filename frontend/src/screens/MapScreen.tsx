@@ -302,6 +302,8 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const [eventRsvpStatus, setEventRsvpStatus] = useState<'going' | null>(null);
   const [eventRsvpLoading, setEventRsvpLoading] = useState(false);
   const [showEventChat, setShowEventChat] = useState(false);
+  /** Real height of the pin-detail action bar, so the scroll can clear it. */
+  const [measuredDetailFooterHeight, setMeasuredDetailFooterHeight] = useState<number | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
   const [showLongPressCoachmark, setShowLongPressCoachmark] = useState(false);
@@ -6071,7 +6073,13 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       typeof detailItem.recommendation_freshness === 'string' ? detailItem.recommendation_freshness : null;
     const detailLiveStatus =
       typeof detailItem.recommendation_status === 'string' ? detailItem.recommendation_status : null;
-    const detailFooterHeight = isPoiDetail ? 8 + 42 + 6 : 20 + 42 + 10; // tighter footer for POI "Add to Community"
+    // Measured rather than estimated: the previous hardcoded figure did not
+    // match the rendered footer, so the bottom of the scroll — usually the
+    // reports row — stayed hidden behind it. The constants remain as the value
+    // used for the first frame, before onLayout reports.
+    const detailFooterHeight = isPoiDetail
+      ? 8 + 42 + 6
+      : measuredDetailFooterHeight ?? 20 + 42 + 10;
 
     // POI layout: compact card-style sheet (shorter height, tighter vertical spacing)
     if (isPoiDetail) {
@@ -6671,6 +6679,10 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
       {/* ── FIXED FOOTER (absolute so it sticks to bottom of sheet) ── */}
       {!isReportPin && !isPoiDetail && (
         <View
+          onLayout={(e) => {
+            const h = e.nativeEvent.layout.height;
+            if (h > 0 && h !== measuredDetailFooterHeight) setMeasuredDetailFooterHeight(h);
+          }}
           style={[
             styles.detailFixedFooter,
             styles.detailFixedFooterAbsolute,

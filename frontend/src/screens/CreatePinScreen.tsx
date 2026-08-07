@@ -139,6 +139,12 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
         footer: {
           paddingHorizontal: spacing.md,
           paddingTop: spacing.md,
+          // Opaque with a divider: the footer floats over the scroll view, so
+          // without these the content ran underneath the button and the two
+          // overlapped at the bottom of the list.
+          backgroundColor: colors.surface,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
         },
         createButton: {
           backgroundColor: colors.interactiveBg,
@@ -252,7 +258,7 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
   const selectedType = PIN_TYPES.find((t) => t.value === type);
 
   return (
-    <KeyboardAvoidingView style={[s.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={s.handleBar} />
       <View style={s.header}>
         <View style={s.headerSpacer} />
@@ -282,7 +288,7 @@ export default function CreatePinScreen({ navigation, route }: CreatePinScreenPr
 
       <ScrollView
         style={s.scrollView}
-        contentContainerStyle={{ paddingBottom: spacing.md }}
+        contentContainerStyle={{ paddingBottom: spacing.xxl }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
