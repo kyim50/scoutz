@@ -247,11 +247,9 @@ const MainTabs = () => {
         tabBarInactiveTintColor: colors.mediumGray,
         tabBarButton: (props) => <AnimatedTabButton {...props} />,
         tabBarIcon: ({ focused, color }) => {
-          // `reader` is a document, which is not what Activity holds. A clock
-          // matches what the screen is: your history, most recent first.
           const tabs: Record<string, [string, string, string]> = {
             Map: ['map', 'map-outline', 'Map'],
-            Activity: ['time', 'time-outline', 'Activity'],
+            Activity: ['reader', 'reader-outline', 'Activity'],
             Profile: ['person', 'person-outline', 'Account'],
           };
           const [on, off, label] = tabs[route.name] ?? ['ellipse', 'ellipse-outline', route.name];
