@@ -1,8 +1,10 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import * as Linking from 'expo-linking';
 import axios from 'axios';
 import { authAPI, userAPI, setOnSessionExpired } from '../services/api';
 import { supabase } from '../lib/supabase';
+import { parseAuthRedirect, parseAuthRedirectError } from '../lib/authLinking';
 
 interface User {
   id: string;
@@ -30,6 +32,15 @@ interface AuthContextType {
   login: (identifier: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string, username?: string) => Promise<SignupResult>;
   forgotPassword: (email: string) => Promise<void>;
+  /** Set a new password for the session established by a recovery link. */
+  completePasswordReset: (newPassword: string) => Promise<void>;
+  /** True while a recovery link's session is active and awaiting a new password. */
+  isPasswordRecovery: boolean;
+  /** Abandon a recovery without setting a password. */
+  cancelPasswordRecovery: () => Promise<void>;
+  /** Set when a recovery link is expired or already used. */
+  authLinkError: string | null;
+  clearAuthLinkError: () => void;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -55,6 +66,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [authLinkError, setAuthLinkError] = useState<string | null>(null);
   // Guards against a late in-flight profile fetch resurrecting a signed-out user.
   const signedOutRef = useRef(false);
 
@@ -116,14 +129,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // device lands here, so React state can never disagree with the real session.
   useEffect(() => {
     const { data: subscription } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // A recovery link gives a real session, so the app would otherwise drop
+        // the user straight into the map with their old password still unset.
+        setIsPasswordRecovery(true);
+        return;
+      }
       if (event === 'SIGNED_OUT' || !session) {
         setUser(null);
+        setIsPasswordRecovery(false);
         await cacheUser(null);
       }
     });
 
     return () => subscription.subscription.unsubscribe();
   }, []);
+
+  /**
+   * Handle auth redirects arriving as deep links.
+   *
+   * Covers both the cold start (app launched by the link) and the warm case
+   * (app already open). supabase-js is configured with detectSessionInUrl:false
+   * because there is no browser URL on native, so the session has to be
+   * installed from the link by hand.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const handleUrl = async (url: string | null) => {
+      if (!url || cancelled) return;
+
+      const failure = parseAuthRedirectError(url);
+      if (failure) {
+        setAuthLinkError(
+          failure.description ||
+            'That link has expired or was already used. Request a new one.'
+        );
+        return;
+      }
+
+      const redirect = parseAuthRedirect(url);
+      if (!redirect) return;
+
+      const { error } = await supabase.auth.setSession({
+        access_token: redirect.accessToken,
+        refresh_token: redirect.refreshToken,
+      });
+
+      if (error) {
+        setAuthLinkError('That link is no longer valid. Request a new one.');
+        return;
+      }
+
+      if (redirect.type === 'recovery') {
+        // setSession does not emit PASSWORD_RECOVERY, so set it explicitly.
+        setIsPasswordRecovery(true);
+        return;
+      }
+
+      // Email confirmation and similar: adopt the session normally.
+      signedOutRef.current = false;
+      try {
+        const profile = await loadProfile();
+        if (profile && !cancelled) {
+          setUser(profile);
+          await cacheUser(profile);
+        }
+      } catch {
+        // The auth state listener will settle this.
+      }
+    };
+
+    Linking.getInitialURL().then(handleUrl).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => void handleUrl(url));
+
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, [loadProfile]);
 
   useEffect(() => {
     setOnSessionExpired(() => {
@@ -202,6 +286,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  /**
+   * Set a new password using the session the recovery link established, then
+   * load the profile so the user lands signed in rather than back at login.
+   */
+  const completePasswordReset = useCallback(
+    async (newPassword: string) => {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        throw new Error(error.message || 'Could not update your password.');
+      }
+
+      setIsPasswordRecovery(false);
+      signedOutRef.current = false;
+
+      try {
+        const profile = await loadProfile();
+        if (profile) {
+          setUser(profile);
+          await cacheUser(profile);
+        }
+      } catch {
+        // Password did change; the user can sign in normally if this fails.
+      }
+    },
+    [loadProfile]
+  );
+
+  const cancelPasswordRecovery = useCallback(async () => {
+    setIsPasswordRecovery(false);
+    // The recovery session is a real session — leaving it active would sign the
+    // user in without them ever setting a password.
+    await supabase.auth.signOut().catch(() => {});
+    setUser(null);
+    await cacheUser(null);
+  }, []);
+
+  const clearAuthLinkError = useCallback(() => setAuthLinkError(null), []);
+
   const logout = useCallback(async () => {
     signedOutRef.current = true;
     try {
@@ -246,10 +368,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         signup,
         forgotPassword,
+        completePasswordReset,
+        isPasswordRecovery,
+        cancelPasswordRecovery,
+        authLinkError,
+        clearAuthLinkError,
         logout,
         deleteAccount,
         refreshUser,
-        isAuthenticated: !!user,
+        // A recovery session must not count as being signed in, or the app
+        // would render the map behind the reset screen.
+        isAuthenticated: !!user && !isPasswordRecovery,
         isAnonymous,
         toggleAnonymous,
       }}

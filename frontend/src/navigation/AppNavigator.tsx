@@ -10,6 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useAlert } from '../context/AlertContext';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 
 import OnboardingScreen from '../screens/OnboardingScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -229,9 +231,25 @@ const MainTabs = () => {
 
 // ── Root stack navigator ──────────────────────────────────────────────────────
 const AppNavigator = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const {
+    isAuthenticated,
+    loading,
+    isPasswordRecovery,
+    authLinkError,
+    clearAuthLinkError,
+  } = useAuth();
   const { colors } = useTheme();
+  const { showAlert } = useAlert();
   const [hasOnboarded, setHasOnboarded] = useState<boolean | null>(null);
+
+  // An expired or already-used link would otherwise do nothing at all, leaving
+  // the user staring at the login screen wondering if the email worked.
+  useEffect(() => {
+    if (!authLinkError) return;
+    showAlert('That link has expired', authLinkError, [
+      { text: 'OK', onPress: clearAuthLinkError },
+    ]);
+  }, [authLinkError, showAlert, clearAuthLinkError]);
 
   useEffect(() => {
     checkOnboarding();
@@ -285,7 +303,12 @@ const AppNavigator = () => {
         transitionSpec: snappyTransitionSpec,
       }}
     >
-      {!isAuthenticated ? (
+      {isPasswordRecovery ? (
+        // Takes precedence over both stacks: a recovery link creates a real
+        // session, so without this the user would be dropped into the app with
+        // their password still unset.
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      ) : !isAuthenticated ? (
         <>
           {!hasOnboarded && (
             <Stack.Screen name="Onboarding">
