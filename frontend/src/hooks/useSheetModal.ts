@@ -7,7 +7,7 @@ import {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
-import { SHEET_EASING, SHEET_IN_MS, SHEET_OUT_MS, SHEET_TRAVEL } from '../lib/motion';
+import { SHEET_EASING, SHEET_IN_MS, SHEET_OUT_MS } from '../lib/motion';
 
 interface Options {
   onClose: () => void;
@@ -33,17 +33,26 @@ const FALLBACK_HEIGHT = Dimensions.get('window').height;
  * busy — which matters, since the username availability check fires while the
  * sheet is on screen.
  *
- * Entry and exit travel different distances on purpose. Exit covers the sheet's
- * measured height so it is gone before the backdrop finishes; a short slide
- * followed by the backdrop cutting out leaves the sheet visible as everything
- * disappears, which reads as a flash. Entry covers only a short rise, because
- * the keyboard already supplies most of the upward movement.
+ * Both directions travel the sheet's measured height. Exit needs it so the
+ * sheet is gone before the backdrop finishes — a short slide followed by the
+ * backdrop cutting out leaves it visible as everything disappears, which reads
+ * as a flash. Entry needs it so the sheet is genuinely off screen when the
+ * modal window presents, rather than sitting at the bottom waiting for the
+ * keyboard to rise over it.
  */
 export function useSheetModal({ onClose }: Options) {
   const keyboard = useAnimatedKeyboard();
 
-  /** Downward offset in px. 0 is fully presented. */
-  const offset = useSharedValue(SHEET_TRAVEL);
+  /**
+   * Downward offset in px. 0 is fully presented.
+   *
+   * Starts a full screen below rather than a short hop, because the modal
+   * window presents before onShow fires. Resting close to the final position
+   * meant the sheet was already on screen at that moment, so the keyboard rose
+   * over the top of it and the sheet then reappeared above — which looks like
+   * the keyboard arriving first and the sheet catching up behind it.
+   */
+  const offset = useSharedValue(FALLBACK_HEIGHT);
   const backdrop = useSharedValue(0);
 
   const heightRef = useRef(FALLBACK_HEIGHT);
@@ -66,7 +75,12 @@ export function useSheetModal({ onClose }: Options) {
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }));
 
   const animateIn = useCallback(() => {
-    offset.value = SHEET_TRAVEL;
+    // Snap off screen, then rise. The keyboard is coming up at the same time
+    // and adds its own height to the travel, so the sheet's duration is set a
+    // little longer than a bare slide would need — the combined distance is the
+    // sheet's height plus the keyboard's, and rushing that is what made an
+    // earlier version lurch.
+    offset.value = heightRef.current;
     backdrop.value = 0;
     offset.value = withTiming(0, { duration: SHEET_IN_MS, easing: SHEET_EASING });
     backdrop.value = withTiming(1, { duration: SHEET_IN_MS, easing: SHEET_EASING });

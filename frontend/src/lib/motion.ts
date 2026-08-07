@@ -18,15 +18,12 @@ import { Easing } from 'react-native-reanimated';
  */
 export const SHEET_EASING = Easing.bezier(0.32, 0.72, 0, 1);
 
-/** Enter is deliberate; exit is snappier, because the user has already decided. */
-export const SHEET_IN_MS = 340;
-export const SHEET_OUT_MS = 220;
-
 /**
- * How far the sheet rises on entry. Deliberately short — the keyboard supplies
- * most of the upward movement, and entering from the sheet's full height meant
- * crossing that plus the keyboard's inside one keyboard duration, which lurches.
- * Exit is separate and travels the measured height so the sheet clears the
- * screen before the backdrop finishes.
+ * Enter is deliberate; exit is snappier, because the user has already decided.
+ *
+ * Entry covers the sheet's height plus the keyboard's, since both rise at once,
+ * so it is pitched slightly longer than a bare slide would need.
  */
-export const SHEET_TRAVEL = 80;
+export const SHEET_IN_MS = 400;
+export const SHEET_OUT_MS = 240;
+
