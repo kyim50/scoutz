@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cite — the map your campus writes itself</title>
+<meta name="description" content="Cite is a community map. People drop pins for the things worth knowing — a bathroom that's actually open, a quiet floor to study on — and file reports that expire, so what you're looking at is current." />
+<meta name="theme-color" content="#000000" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Cite — the map your campus writes itself" />
+<meta property="og:description" content="Pins for the things worth knowing. Reports that expire so the map stays true. Events, reviews and private groups." />
+<meta property="og:url" content="https://joincite.com" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='12' r='7' fill='%233ddc91'/><rect x='14.6' y='17' width='2.8' height='10' rx='1.4' fill='%233ddc91'/></svg>" />
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top">
+      <span class="pin sm" aria-hidden="true"><span class="pin-head"></span><span class="pin-stick"></span></span>
+      Cite
+    </a>
+    <nav class="nav-links">
+      <a href="#what">What it is</a>
+      <a href="#fresh">Staying current</a>
+      <a href="#groups">Groups</a>
+      <a href="#start">Get it</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ── Hero ─────────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="wrap hero-inner">
+      <div>
+        <p class="eyebrow">A community map</p>
+        <h1>The map your campus<br />writes itself.</h1>
+        <p class="lede">
+          Every map knows where the buildings are. None of them know which bathroom
+          is open at 2am, which floor is quiet during finals, or that the café on
+          the corner has had a queue out the door since noon.
+          <strong style="color:var(--text)">Cite is the map for that</strong> — written
+          by the people already there.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#start">Get the app</a>
+          <a class="btn btn-ghost" href="#what">See how it works</a>
+        </div>
+        <p class="hero-note">Free. Works anywhere. Post publicly or only to your group.</p>
+      </div>
+
+      <!-- A rebuild of the app's own pin sheet, in CSS. -->
+      <div class="phone" aria-hidden="true">
+        <div class="phone-screen">
+          <div class="phone-map">
+            <span class="map-pin" style="top:16%;left:16%;background:rgba(255,107,53,0.16);color:var(--food)">🍴</span>
+            <span class="map-pin" style="top:29%;left:63%;background:rgba(0,122,255,0.16);color:var(--access)">🚻</span>
+            <span class="map-pin" style="top:47%;left:26%;background:rgba(88,86,214,0.16);color:var(--campus)">📚</span>
+            <span class="map-pin" style="top:12%;left:44%;background:rgba(255,149,0,0.16);color:var(--hazard)">⚠️</span>
+            <span class="pin" style="position:absolute;top:52%;left:56%;z-index:3">
+              <span class="pin-head"></span><span class="pin-stick"></span>
+            </span>
+          </div>
+
+          <div class="phone-sheet">
+            <div class="sheet-grab"></div>
+            <div class="sheet-row">
+              <span class="sheet-icon" style="background:rgba(255,107,53,0.16);color:var(--food)">🍴</span>
+              <span style="flex:1">
+                <span class="sheet-title">The Garden Court</span>
+                <span class="sheet-meta">
+                  <span class="stars">★</span> 4.8 · Food · 6 min · 461 m
+                </span>
+              </span>
+            </div>
+            <div class="sheet-actions">
+              <span class="sheet-btn primary">Directions</span>
+              <span class="sheet-btn ghost">Reviews</span>
+            </div>
+            <div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border)">
+              <span class="chip-tag" style="background:rgba(255,149,0,0.14);color:var(--hazard)">⏱ Busy right now</span>
+              <p style="margin:9px 0 0;font-size:12px;line-height:1.55;color:var(--text-muted)">
+                Queue out the door, about 15 min. Upstairs seating is empty though.
+              </p>
+              <p style="margin:7px 0 0;font-size:10.5px;color:var(--text-muted)">
+                Posted 20 min ago · expires in 5h
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ── What it is ───────────────────────────────────────────────────── -->
+  <section id="what">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">What's on it</p>
+        <h2>Four kinds of useful.</h2>
+        <p class="section-sub">
+          Everything on Cite is something a person nearby thought was worth the
+          twenty seconds it took to add.
+        </p>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-icon" style="background:var(--accent-tint);color:var(--accent)">📍</div>
+          <h3>Pins</h3>
+          <p>
+            Places that stay put. Bathrooms, food, pharmacies, study spaces,
+            charging points. Each one can carry the building, the floor and how to
+            actually get in — the door code, which entrance, what to say at the desk.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon" style="background:rgba(255,149,0,0.14);color:var(--hazard)">🚩</div>
+          <h3>Reports</h3>
+          <p>
+            What's true right now. A lift out of service, a flooded path, a kitchen
+            that's stopped serving, a queue worth avoiding. Reports expire on their
+            own, which is what keeps the map honest.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon" style="background:rgba(88,86,214,0.14);color:var(--campus)">📅</div>
+          <h3>Events</h3>
+          <p>
+            Anything happening at a place and a time — a study session, a society
+            night, a pickup game. RSVP, see who's coming, and find it again in your
+            activity when it's about to start.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon" style="background:rgba(255,184,0,0.14);color:var(--gold)">★</div>
+          <h3>Reviews</h3>
+          <p>
+            Ratings and a sentence on any pin, so "there's a bathroom here" becomes
+            "there's a clean one here, and the second floor is better". Photos
+            optional but they're what makes a review land.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ── Freshness ────────────────────────────────────────────────────── -->
+  <section id="fresh">
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow">Why it stays true</p>
+        <h2>Everything temporary is treated as temporary.</h2>
+        <p class="section-sub">
+          The reason community maps rot is that nobody goes back to delete things.
+          So on Cite, a report is born with an expiry that matches how long it could
+          plausibly still be true — and when it lapses, it leaves.
+        </p>
+        <div class="expiry">
+          <div class="expiry-item">
+            <div class="expiry-kind" style="color:var(--food)">Food status</div>
+            <div class="expiry-time">6 hours</div>
+          </div>
+          <div class="expiry-item">
+            <div class="expiry-kind">General</div>
+            <div class="expiry-time">12 hours</div>
+          </div>
+          <div class="expiry-item">
+            <div class="expiry-kind" style="color:var(--hazard)">Hazard</div>
+            <div class="expiry-time">24 hours</div>
+          </div>
+          <div class="expiry-item">
+            <div class="expiry-kind" style="color:var(--safety)">Safety</div>
+            <div class="expiry-time">48 hours</div>
+          </div>
+          <div class="expiry-item">
+            <div class="expiry-kind" style="color:var(--access)">Accessibility</div>
+            <div class="expiry-time">3 days</div>
+          </div>
+          <div class="expiry-item">
+            <div class="expiry-kind" style="color:var(--campus)">Campus update</div>
+            <div class="expiry-time">7 days</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <ul class="steps">
+          <li>
+            <div>
+              <strong>Reports run out</strong>
+              <span>A busy café at lunch says nothing about the same café at nine. If people keep replying, it lives longer — interest is the only thing that extends it.</span>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Pins get checked</strong>
+              <span>Every pin asks the one question that matters: is this still accurate? Two taps — still here, or gone. A pin nobody can vouch for stops being treated as fact.</span>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>You can see who said it</strong>
+              <span>Every pin and report carries its author and its age, so you can weigh a five-minute-old note from a regular against something from last term.</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ── Groups ───────────────────────────────────────────────────────── -->
+  <section id="groups">
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow">Who sees it</p>
+        <h2>Public, or just your people.</h2>
+        <p class="section-sub">
+          Some things belong on the open map. Some belong to eleven people and
+          nobody else. Cite has one switch for that, and it sits at the top of the
+          map rather than buried in settings — so you always know which map you're
+          looking at before you add to it.
+        </p>
+        <ul class="steps">
+          <li>
+            <div>
+              <strong>Everything on the map</strong>
+              <span>The public layer. Anything you add here, anyone nearby can see.</span>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>A group you're in</strong>
+              <span>A flat, a team, a society. Pins, reports and events shared with the members and no one else — a private map laid over the same streets.</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="review">
+          <div class="review-top">
+            <span class="avatar">K</span>
+            <span style="flex:1">
+              <span style="display:block;font-weight:600;font-size:14.5px">Kimani</span>
+              <span class="stars">★★★★★</span>
+              <span style="font-size:11.5px;color:var(--text-muted);margin-left:6px">2h ago</span>
+            </span>
+          </div>
+          <p>Third floor is dead quiet after 6 and every desk has a socket. Door on the north side is the one that's unlocked.</p>
+        </div>
+        <div class="review">
+          <div class="review-top">
+            <span class="avatar" style="background:var(--campus);color:#fff">A</span>
+            <span style="flex:1">
+              <span style="display:block;font-weight:600;font-size:14.5px">Amara</span>
+              <span class="stars">★★★★</span>
+              <span style="font-size:11.5px;color:var(--text-muted);margin-left:6px">Yesterday</span>
+            </span>
+          </div>
+          <p>Good coffee, terrible wifi. Fine for reading, not for a call.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ── Close ────────────────────────────────────────────────────────── -->
+  <section id="start">
+    <div class="wrap">
+      <div class="closer">
+        <p class="eyebrow">Get Cite</p>
+        <h2>Add the first pin where you are.</h2>
+        <p class="lede" style="color:var(--text-secondary)">
+          A map is only worth opening once somebody has put something on it. That
+          part takes about twenty seconds.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#">Download for iOS</a>
+          <a class="btn btn-ghost" href="#">Download for Android</a>
+        </div>
+        <p class="hero-note">Coming to the App Store and Google Play.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap footer-inner">
+    <div style="display:flex;align-items:center;gap:9px">
+      <span class="pin sm" aria-hidden="true"><span class="pin-head"></span><span class="pin-stick"></span></span>
+      <span>&copy; 2026 Cite</span>
+    </div>
+    <div class="footer-links">
+      <a href="#what">What it is</a>
+      <a href="#fresh">Staying current</a>
+      <a href="#groups">Groups</a>
+      <a href="mailto:hello@joincite.com">Contact</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

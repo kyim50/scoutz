@@ -1,0 +1,164 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Cite" [ref=e4] [cursor=pointer]:
+        - /url: "#top"
+      - navigation [ref=e8]:
+        - link "What it is" [ref=e9] [cursor=pointer]:
+          - /url: "#what"
+        - link "Staying current" [ref=e10] [cursor=pointer]:
+          - /url: "#fresh"
+        - link "Groups" [ref=e11] [cursor=pointer]:
+          - /url: "#groups"
+        - link "Get it" [ref=e12] [cursor=pointer]:
+          - /url: "#start"
+  - main [ref=e13]:
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - paragraph [ref=e17]: A community map
+        - heading "The map your campus writes itself." [level=1] [ref=e18]: The map your campuswrites itself.
+        - paragraph [ref=e19]:
+          - text: Every map knows where the buildings are. None of them know which bathroom is open at 2am, which floor is quiet during finals, or that the café on the corner has had a queue out the door since noon.
+          - strong [ref=e20]: Cite is the map for that
+          - text: — written by the people already there.
+        - generic [ref=e21]:
+          - link "Get the app" [ref=e22] [cursor=pointer]:
+            - /url: "#start"
+          - link "See how it works" [ref=e23] [cursor=pointer]:
+            - /url: "#what"
+        - paragraph [ref=e24]: Free. Works anywhere. Post publicly or only to your group.
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: 🍴
+          - generic [ref=e29]: 🚻
+          - generic [ref=e30]: 📚
+          - generic [ref=e31]: ⚠️
+        - generic [ref=e35]:
+          - generic [ref=e37]:
+            - generic [ref=e38]: 🍴
+            - generic [ref=e39]:
+              - text: The Garden Court
+              - generic [ref=e40]:
+                - generic [ref=e41]: ★
+                - text: 4.8 · Food · 6 min · 461 m
+          - generic [ref=e42]:
+            - generic [ref=e43]: Directions
+            - generic [ref=e44]: Reviews
+          - generic [ref=e45]:
+            - generic [ref=e46]: ⏱ Busy right now
+            - paragraph [ref=e47]: Queue out the door, about 15 min. Upstairs seating is empty though.
+            - paragraph [ref=e48]: Posted 20 min ago · expires in 5h
+    - separator [ref=e49]
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - paragraph [ref=e53]: What's on it
+        - heading "Four kinds of useful." [level=2] [ref=e54]
+        - paragraph [ref=e55]: Everything on Cite is something a person nearby thought was worth the twenty seconds it took to add.
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]: 📍
+          - heading "Pins" [level=3] [ref=e59]
+          - paragraph [ref=e60]: Places that stay put. Bathrooms, food, pharmacies, study spaces, charging points. Each one can carry the building, the floor and how to actually get in — the door code, which entrance, what to say at the desk.
+        - generic [ref=e61]:
+          - generic [ref=e62]: 🚩
+          - heading "Reports" [level=3] [ref=e63]
+          - paragraph [ref=e64]: What's true right now. A lift out of service, a flooded path, a kitchen that's stopped serving, a queue worth avoiding. Reports expire on their own, which is what keeps the map honest.
+        - generic [ref=e65]:
+          - generic [ref=e66]: 📅
+          - heading "Events" [level=3] [ref=e67]
+          - paragraph [ref=e68]: Anything happening at a place and a time — a study session, a society night, a pickup game. RSVP, see who's coming, and find it again in your activity when it's about to start.
+        - generic [ref=e69]:
+          - generic [ref=e70]: ★
+          - heading "Reviews" [level=3] [ref=e71]
+          - paragraph [ref=e72]: Ratings and a sentence on any pin, so "there's a bathroom here" becomes "there's a clean one here, and the second floor is better". Photos optional but they're what makes a review land.
+    - separator [ref=e73]
+    - generic [ref=e75]:
+      - generic [ref=e76]:
+        - paragraph [ref=e77]: Why it stays true
+        - heading "Everything temporary is treated as temporary." [level=2] [ref=e78]
+        - paragraph [ref=e79]: The reason community maps rot is that nobody goes back to delete things. So on Cite, a report is born with an expiry that matches how long it could plausibly still be true — and when it lapses, it leaves.
+        - generic [ref=e80]:
+          - generic [ref=e81]:
+            - generic [ref=e82]: Food status
+            - generic [ref=e83]: 6 hours
+          - generic [ref=e84]:
+            - generic [ref=e85]: General
+            - generic [ref=e86]: 12 hours
+          - generic [ref=e87]:
+            - generic [ref=e88]: Hazard
+            - generic [ref=e89]: 24 hours
+          - generic [ref=e90]:
+            - generic [ref=e91]: Safety
+            - generic [ref=e92]: 48 hours
+          - generic [ref=e93]:
+            - generic [ref=e94]: Accessibility
+            - generic [ref=e95]: 3 days
+          - generic [ref=e96]:
+            - generic [ref=e97]: Campus update
+            - generic [ref=e98]: 7 days
+      - list [ref=e100]:
+        - listitem [ref=e101]:
+          - generic [ref=e102]:
+            - strong [ref=e103]: Reports run out
+            - text: A busy café at lunch says nothing about the same café at nine. If people keep replying, it lives longer — interest is the only thing that extends it.
+        - listitem [ref=e104]:
+          - generic [ref=e105]:
+            - strong [ref=e106]: Pins get checked
+            - text: "Every pin asks the one question that matters: is this still accurate? Two taps — still here, or gone. A pin nobody can vouch for stops being treated as fact."
+        - listitem [ref=e107]:
+          - generic [ref=e108]:
+            - strong [ref=e109]: You can see who said it
+            - text: Every pin and report carries its author and its age, so you can weigh a five-minute-old note from a regular against something from last term.
+    - separator [ref=e110]
+    - generic [ref=e112]:
+      - generic [ref=e113]:
+        - paragraph [ref=e114]: Who sees it
+        - heading "Public, or just your people." [level=2] [ref=e115]
+        - paragraph [ref=e116]: Some things belong on the open map. Some belong to eleven people and nobody else. Cite has one switch for that, and it sits at the top of the map rather than buried in settings — so you always know which map you're looking at before you add to it.
+        - list [ref=e117]:
+          - listitem [ref=e118]:
+            - generic [ref=e119]:
+              - strong [ref=e120]: Everything on the map
+              - text: The public layer. Anything you add here, anyone nearby can see.
+          - listitem [ref=e121]:
+            - generic [ref=e122]:
+              - strong [ref=e123]: A group you're in
+              - text: A flat, a team, a society. Pins, reports and events shared with the members and no one else — a private map laid over the same streets.
+      - generic [ref=e124]:
+        - generic [ref=e125]:
+          - generic [ref=e126]:
+            - generic [ref=e127]: K
+            - generic [ref=e128]:
+              - generic [ref=e129]: Kimani
+              - text: ★★★★★ 2h ago
+          - paragraph [ref=e130]: Third floor is dead quiet after 6 and every desk has a socket. Door on the north side is the one that's unlocked.
+        - generic [ref=e131]:
+          - generic [ref=e132]:
+            - generic [ref=e133]: A
+            - generic [ref=e134]:
+              - generic [ref=e135]: Amara
+              - text: ★★★★ Yesterday
+          - paragraph [ref=e136]: Good coffee, terrible wifi. Fine for reading, not for a call.
+    - separator [ref=e137]
+    - generic [ref=e140]:
+      - paragraph [ref=e141]: Get Cite
+      - heading "Add the first pin where you are." [level=2] [ref=e142]
+      - paragraph [ref=e143]: A map is only worth opening once somebody has put something on it. That part takes about twenty seconds.
+      - generic [ref=e144]:
+        - link "Download for iOS" [ref=e145] [cursor=pointer]:
+          - /url: "#"
+        - link "Download for Android" [ref=e146] [cursor=pointer]:
+          - /url: "#"
+      - paragraph [ref=e147]: Coming to the App Store and Google Play.
+  - contentinfo [ref=e148]:
+    - generic [ref=e149]:
+      - generic [ref=e150]: © 2026 Cite
+      - generic [ref=e155]:
+        - link "What it is" [ref=e156] [cursor=pointer]:
+          - /url: "#what"
+        - link "Staying current" [ref=e157] [cursor=pointer]:
+          - /url: "#fresh"
+        - link "Groups" [ref=e158] [cursor=pointer]:
+          - /url: "#groups"
+        - link "Contact" [ref=e159] [cursor=pointer]:
+          - /url: mailto:hello@joincite.com

@@ -10,3 +10,6 @@
 node_modules/
 dist/
 *.log
+
+# Playwright MCP scratch output from local page checks
+web/.playwright-mcp/
