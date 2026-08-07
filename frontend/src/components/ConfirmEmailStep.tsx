@@ -21,8 +21,12 @@ interface ConfirmEmailStepProps {
   onBackToLogin: () => void;
 }
 
-/** How long before the resend button becomes available again. */
-const RESEND_COOLDOWN_S = 30;
+/**
+ * Must be at least Supabase's "minimum interval per user" (Authentication →
+ * Emails → SMTP), which is 60s by default. Unlocking sooner offers a button
+ * that Supabase will refuse, so the user presses it and nothing arrives.
+ */
+const RESEND_COOLDOWN_S = 60;
 
 /**
  * The halo starts at exactly the icon's size and expands outward, so it reads
