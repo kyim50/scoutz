@@ -295,10 +295,12 @@ export default function ActivityScreen({ navigation }: { navigation: any }) {
 
         // ── Hero card ── the most recent thing, given room to be looked at.
         hero: {
-          backgroundColor: colors.surfaceGray,
+          // Outlined rather than filled: the card is the same colour as the page
+          // and it is the border that makes it a card.
+          backgroundColor: 'transparent',
           borderRadius: borderRadius.xl,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
+          borderWidth: 1,
+          borderColor: colors.lightGray,
           padding: spacing.sm + 2,
           marginBottom: spacing.lg,
         },
@@ -361,10 +363,10 @@ export default function ActivityScreen({ navigation }: { navigation: any }) {
           flexDirection: 'row',
           alignItems: 'center',
           gap: spacing.sm + 4,
-          backgroundColor: colors.surfaceGray,
+          backgroundColor: 'transparent',
           borderRadius: borderRadius.lg,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
+          borderWidth: 1,
+          borderColor: colors.lightGray,
           padding: spacing.md,
           marginBottom: spacing.sm,
         },

@@ -16,6 +16,7 @@ import { spacing, typography, borderRadius, shadows } from '../constants/theme';
 import { MAPBOX_STYLE_STANDARD, MAPBOX_TOKEN } from '../constants/map';
 import { useTheme } from '../context/ThemeContext';
 import { useAlert } from '../context/AlertContext';
+import MapPinMarker, { PIN_HEIGHT } from '../components/MapPinMarker';
 
 const { width, height } = Dimensions.get('window');
 
@@ -66,47 +67,12 @@ export default function PlacePinScreen({ navigation, route }: PlacePinScreenProp
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
         map: { flex: 1 },
-        // HEAD=22, STICK=14 -> total=35; tip sits at height/2
+        // The tip sits at height/2, which is the point the map is centred on.
         centerPinContainer: {
           position: 'absolute',
-          top: height / 2 - 35,
+          top: height / 2 - PIN_HEIGHT,
           left: width / 2 - 11,
           alignItems: 'center',
-        },
-        centerPin: {
-          alignItems: 'center',
-        },
-        centerPinDragging: {
-          transform: [{ translateY: -8 }],
-        },
-        pinHead: {
-          width: 22,
-          height: 22,
-          borderRadius: 11,
-          backgroundColor: isDarkMode ? '#FFFFFF' : '#1C1C1E',
-        },
-        pinHighlight: {
-          width: 5,
-          height: 5,
-          borderRadius: 2.5,
-          backgroundColor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.35)',
-          position: 'absolute',
-          top: 4,
-          left: 5,
-        },
-        pinStick: {
-          width: 3,
-          height: 14,
-          borderRadius: 1.5,
-          backgroundColor: isDarkMode ? '#FFFFFF' : '#1C1C1E',
-          marginTop: -1,
-        },
-        pinShadow: {
-          width: 8,
-          height: 3,
-          borderRadius: 4,
-          backgroundColor: 'rgba(0,0,0,0.2)',
-          marginTop: 0,
         },
         backButton: {
           position: 'absolute',
@@ -298,18 +264,9 @@ export default function PlacePinScreen({ navigation, route }: PlacePinScreenProp
         )}
       </MapboxGL.MapView>
 
-      {/* Center pin */}
+      {/* Center pin — shared with the thumbnail on the create form. */}
       <View style={styles.centerPinContainer} pointerEvents="none">
-        <View style={[styles.centerPin, isDragging && { transform: [{ translateY: -8 }] }]}>
-          {/* Circle head with subtle inner dot */}
-          <View style={styles.pinHead}>
-            <View style={styles.pinHighlight} />
-          </View>
-          {/* Long stick */}
-          <View style={styles.pinStick} />
-        </View>
-        {/* Ground shadow — always visible, grows on drag */}
-        <View style={[styles.pinShadow, isDragging && { width: 10, opacity: 0.15 }]} />
+        <MapPinMarker raised={isDragging} />
       </View>
 
       {/* Back */}

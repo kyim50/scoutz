@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MAPBOX_TOKEN } from '../constants/map';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import MapPinMarker, { PIN_HEIGHT } from '../components/MapPinMarker';
 
 interface LocationThumbnailProps {
   lat: number;
@@ -41,11 +42,11 @@ export default function LocationThumbnail({
   const uri = useMemo(() => {
     if (!MAPBOX_TOKEN) return null;
     const style = isDarkMode ? 'dark-v11' : 'streets-v12';
-    // The marker colour has no leading '#': the API takes a bare hex triplet.
-    const marker = `pin-s+3ddc91(${lng},${lat})`;
+    // No marker in the URL: Mapbox's teardrop is not the pin this flow uses, so
+    // the app's own marker is drawn over the centre instead.
     return (
       `https://api.mapbox.com/styles/v1/mapbox/${style}/static/` +
-      `${marker}/${lng},${lat},15,0/600x${Math.round(height * 2)}@2x` +
+      `${lng},${lat},15,0/600x${Math.round(height * 2)}@2x` +
       `?access_token=${MAPBOX_TOKEN}&logo=false&attribution=false`
     );
   }, [lat, lng, height, isDarkMode]);
@@ -61,6 +62,15 @@ export default function LocationThumbnail({
           borderColor: colors.border,
         },
         image: { width: '100%', height },
+        // The map is centred on the point, so the pin's tip belongs at the
+        // centre of the image — hence the offset by its own height.
+        pinLayer: {
+          position: 'absolute',
+          top: height / 2 - PIN_HEIGHT,
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+        },
         centre: { height, alignItems: 'center', justifyContent: 'center', gap: 6 },
         fallbackText: { ...typography.caption, color: colors.textMuted },
         labelRow: {
@@ -91,6 +101,11 @@ export default function LocationThumbnail({
               setLoading(false);
             }}
           />
+          {!loading && (
+            <View style={s.pinLayer} pointerEvents="none">
+              <MapPinMarker />
+            </View>
+          )}
           {loading && (
             <View style={[s.centre, StyleSheet.absoluteFillObject]}>
               <ActivityIndicator size="small" color={colors.textMuted} />
