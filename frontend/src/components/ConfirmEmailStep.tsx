@@ -62,7 +62,8 @@ export default function ConfirmEmailStep({
   // motion reads as continuous rather than as a repeating blink.
   const ripple1 = useSharedValue(0);
   const ripple2 = useSharedValue(0);
-  const lift = useSharedValue(0);
+  /** Slow breath on the icon itself, so the centre is alive without drifting. */
+  const breath = useSharedValue(0);
 
   useEffect(() => {
     // Expands and fades. Fully transparent at the end of each cycle, so the
@@ -79,26 +80,24 @@ export default function ConfirmEmailStep({
 
     ripple1.value = ripple();
     ripple2.value = withDelay(RIPPLE_PERIOD_MS / 2, ripple());
-    // Offset and on a different period, so the two never lock into a
-    // mechanical repeat.
-    lift.value = withDelay(
-      300,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.quad) })
-        ),
-        -1,
-        true
-      )
+
+    // Scale only, no translation — the icon must stay concentric with the
+    // rings or the pulse stops reading as coming from it.
+    breath.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 1400, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1,
+      true
     );
 
     return () => {
       cancelAnimation(ripple1);
       cancelAnimation(ripple2);
-      cancelAnimation(lift);
+      cancelAnimation(breath);
     };
-  }, [ripple1, ripple2, lift]);
+  }, [ripple1, ripple2, breath]);
 
   // Counts down to re-enable resend, so the button is never a dead press.
   useEffect(() => {
@@ -107,18 +106,22 @@ export default function ConfirmEmailStep({
     return () => clearTimeout(t);
   }, [cooldown]);
 
+  // Written out rather than via a shared factory: useAnimatedStyle is a hook
+  // and must be called directly in the component body.
+  // The exponent fades the ring out well before full extent, so it never
+  // reaches the text below.
   const ripple1Style = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + ripple1.value * 1.15 }],
-    opacity: (1 - ripple1.value) * 0.22,
+    transform: [{ scale: 1 + ripple1.value * 1.1 }],
+    opacity: (1 - ripple1.value) ** 1.6 * 0.5,
   }));
 
   const ripple2Style = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + ripple2.value * 1.15 }],
-    opacity: (1 - ripple2.value) * 0.22,
+    transform: [{ scale: 1 + ripple2.value * 1.1 }],
+    opacity: (1 - ripple2.value) ** 1.6 * 0.5,
   }));
 
   const envelopeStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: lift.value * -5 }],
+    transform: [{ scale: 1 + breath.value * 0.03 }],
   }));
 
   const handleResend = useCallback(async () => {
@@ -165,7 +168,8 @@ export default function ConfirmEmailStep({
           right: 0,
           bottom: 0,
           borderRadius: ICON_SIZE / 2,
-          backgroundColor: colors.accent,
+          borderWidth: 1.5,
+          borderColor: colors.accent,
         },
         iconCircle: {
           width: ICON_SIZE,
@@ -176,46 +180,46 @@ export default function ConfirmEmailStep({
           justifyContent: 'center',
         },
 
-        eyebrow: {
-          ...typography.labelSmall,
-          color: colors.accent,
-          letterSpacing: 1.2,
-          textTransform: 'uppercase',
-          marginBottom: spacing.sm,
-        },
+        // Three levels only: the heading, the address, and one supporting
+        // sentence. An eyebrow above the title added a fourth that competed
+        // with the heading and repeated what the progress dots already say.
         title: {
-          fontSize: 26,
-          lineHeight: 32,
+          fontSize: 27,
+          lineHeight: 33,
           fontWeight: '700',
           letterSpacing: -0.6,
           color: colors.text,
           textAlign: 'center',
-          marginBottom: spacing.sm,
+          marginBottom: spacing.md,
+        },
+        emailChip: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 7,
+          alignSelf: 'center',
+          maxWidth: '100%',
+          paddingVertical: 9,
+          paddingHorizontal: spacing.md,
+          borderRadius: borderRadius.round,
+          backgroundColor: colors.surfaceGray,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          marginBottom: spacing.md,
+        },
+        email: {
+          fontSize: 15,
+          fontWeight: '600',
+          color: colors.text,
+          flexShrink: 1,
         },
         body: {
           ...typography.bodySmall,
           color: colors.textSecondary,
           textAlign: 'center',
           lineHeight: 21,
-          // Keeps the line length comfortable instead of spanning the sheet.
-          maxWidth: 290,
-        },
-        // On its own line. Inline, a long address wrapped mid-sentence and
-        // split the instruction across the break.
-        email: {
-          fontSize: 16,
-          fontWeight: '600',
-          color: colors.text,
-          textAlign: 'center',
-          marginTop: spacing.sm,
-          marginBottom: spacing.sm,
-        },
-        hint: {
-          ...typography.caption,
-          color: colors.textMuted,
-          textAlign: 'center',
+          // Caps the measure so lines stay readable rather than spanning the
+          // full sheet width.
           maxWidth: 280,
-          lineHeight: 17,
         },
 
         // Reserved height so the layout doesn't shift when this appears.
@@ -279,13 +283,21 @@ export default function ConfirmEmailStep({
         </Reanimated.View>
       </View>
 
-      <Text style={s.eyebrow}>Almost there</Text>
       <Text style={s.title}>Check your email</Text>
-      <Text style={s.body}>We sent a confirmation link to</Text>
-      <Text style={s.email} numberOfLines={1} ellipsizeMode="middle">
-        {email}
+
+      {/* The address is data, not prose. Giving it its own surface separates it
+          from the sentence instead of relying on weight alone, and it survives
+          a long address without disturbing the paragraph. */}
+      <View style={s.emailChip}>
+        <Ionicons name="mail-outline" size={14} color={colors.textSecondary} />
+        <Text style={s.email} numberOfLines={1} ellipsizeMode="middle">
+          {email}
+        </Text>
+      </View>
+
+      <Text style={s.body}>
+        Tap the link we just sent and you&apos;ll be signed in automatically.
       </Text>
-      <Text style={s.hint}>Tap it and you&apos;ll be signed in automatically.</Text>
 
       <View style={s.noticeSlot}>
         {resentOnce ? (
