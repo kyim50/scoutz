@@ -110,6 +110,22 @@ const PURCHASE_REQUIRED_OPTIONS = [
   { value: 'yes', label: 'Required' },
 ];
 
+/**
+ * How long each report type stays up, mirroring TTL_CONFIG in the backend's
+ * report.service.ts. Surfaced because expiry is the point of a report — it is
+ * what makes it current rather than permanent like a pin — and nothing on the
+ * screen said so.
+ */
+const REPORT_LIFETIME: Record<string, string> = {
+  hazard: '24 hours',
+  general: '12 hours',
+  food_status: '6 hours',
+  safety: '48 hours',
+  campus_update: '7 days',
+  accessibility: '3 days',
+  other: '24 hours',
+};
+
 const ACCESSIBILITY_LEVEL_OPTIONS = [
   { value: 'accessible', label: 'Accessible' },
   { value: 'limited', label: 'Limited' },
@@ -152,6 +168,8 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
     (route?.params?.presetType as ReportType) ?? 'general'
   );
   const [subOption, setSubOption] = useState<string>('');
+  /** Free text for the "Other" detail chip, which otherwise leads nowhere. */
+  const [otherDetail, setOtherDetail] = useState('');
   const [content, setContent] = useState('');
   const [imageUris, setImageUris] = useState<string[]>([]);
   const [openNow, setOpenNow] = useState('');
@@ -226,6 +244,9 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
       if (subOption) {
         if (type === 'food_status') metadata.status = subOption;
         else metadata.subtype = subOption;
+        if (subOption === 'other' && otherDetail.trim()) {
+          metadata.subtype_detail = otherDetail.trim();
+        }
       }
       if (openNow) metadata.open_now = openNow;
       if (crowdLevel) metadata.crowd_level = crowdLevel;
@@ -424,6 +445,24 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
         discloseTextWrap: { flex: 1, gap: 2 },
         discloseTitle: { ...typography.bodySemibold, color: colors.text, fontSize: 15 },
         discloseSub: { ...typography.caption, color: colors.textMuted },
+        otherInput: {
+          marginTop: spacing.sm,
+          backgroundColor: colors.surfaceGray,
+          borderRadius: borderRadius.md,
+          borderWidth: 1.25,
+          borderColor: colors.borderDark,
+          color: colors.text,
+          fontSize: 15,
+          height: 44,
+          paddingHorizontal: spacing.md,
+        },
+        lifetimeRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          marginBottom: spacing.md,
+        },
+        lifetimeText: { ...typography.caption, color: colors.textMuted, flexShrink: 1 },
         submitHint: {
           ...typography.caption,
           color: colors.textMuted,
@@ -533,6 +572,15 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
               );
             })}
           </View>
+
+          {/* Expiry is the point of a report — it is what keeps it current
+              rather than permanent like a pin — and nothing said so. */}
+          <View style={s.lifetimeRow}>
+            <Ionicons name="time-outline" size={13} color={colors.textMuted} />
+            <Text style={s.lifetimeText}>
+              Stays on the map for {REPORT_LIFETIME[type] ?? '24 hours'}, longer if people reply.
+            </Text>
+          </View>
         </View>
 
         {/* Sub options */}
@@ -557,6 +605,19 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
                   );
                 })}
               </View>
+
+              {/* Choosing "Other" with nowhere to say what is a dead end. */}
+              {subOption === 'other' && (
+                <TextInput
+                  style={s.otherInput}
+                  placeholder="What kind of thing?"
+                  placeholderTextColor={colors.textMuted}
+                  value={otherDetail}
+                  onChangeText={setOtherDetail}
+                  maxLength={60}
+                  autoFocus
+                />
+              )}
             </View>
           </>
         )}

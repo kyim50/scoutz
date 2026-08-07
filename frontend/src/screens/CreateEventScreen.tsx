@@ -139,6 +139,41 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
     if (endMinute.length === 1) setEndMinute(endMinute.padStart(2, '0'));
   };
 
+  /**
+   * Sets the end time to a duration after the start. Entering an end time by
+   * hand is four more controls to answer a question most people think of as
+   * "about two hours".
+   */
+  const applyDuration = useCallback(
+    (hours: number) => {
+      const h = parseInt(hour, 10);
+      if (!hour.trim() || Number.isNaN(h)) return;
+      const start24 = (h % 12) + (meridiem === 'PM' ? 12 : 0);
+      const mins = parseInt(minute || '0', 10) || 0;
+      const total = start24 * 60 + mins + hours * 60;
+      const endH24 = Math.floor(total / 60) % 24;
+      const endM = total % 60;
+      const endMer = endH24 >= 12 ? 'PM' : 'AM';
+      const endH12 = endH24 % 12 === 0 ? 12 : endH24 % 12;
+      setEndHour(String(endH12).padStart(2, '0'));
+      setEndMinute(String(endM).padStart(2, '0'));
+      setEndMeridiem(endMer);
+    },
+    [hour, minute, meridiem]
+  );
+
+  /** Restates the four separate controls as the one thing they describe. */
+  const whenSummary = useMemo(() => {
+    if (!selectedDate || !hour.trim()) return null;
+    const day = selectedDate.toLocaleDateString(undefined, {
+      weekday: 'long', day: 'numeric', month: 'long',
+    });
+    const start = `${parseInt(hour, 10)}:${(minute || '00').padStart(2, '0')} ${meridiem.toLowerCase()}`;
+    if (!endHour.trim()) return `${day}, from ${start}`;
+    const end = `${parseInt(endHour, 10)}:${(endMinute || '00').padStart(2, '0')} ${endMeridiem.toLowerCase()}`;
+    return `${day}, ${start} – ${end}`;
+  }, [selectedDate, hour, minute, meridiem, endHour, endMinute, endMeridiem]);
+
   const s = useMemo(
     () =>
       StyleSheet.create({
@@ -359,6 +394,33 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
           width: 48,
         },
 
+        durationRow: {
+          flexDirection: 'row',
+          gap: spacing.xs,
+          marginTop: spacing.sm,
+          marginLeft: 48 + spacing.sm,
+        },
+        durationChip: {
+          paddingVertical: 6,
+          paddingHorizontal: spacing.sm + 2,
+          borderRadius: borderRadius.round,
+          backgroundColor: colors.surfaceGray,
+          borderWidth: 1,
+          borderColor: 'transparent',
+        },
+        durationChipText: { ...typography.captionMedium, color: colors.textSecondary },
+        durationChipTextOff: { color: colors.textMuted },
+        whenSummary: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: spacing.md,
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.sm + 2,
+          borderRadius: borderRadius.md,
+          backgroundColor: colors.accentTint,
+        },
+        whenSummaryText: { ...typography.bodySmallMedium, color: colors.text, flexShrink: 1 },
         switchRow: {
           flexDirection: 'row',
           justifyContent: 'space-between',
@@ -644,15 +706,18 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
                     <TouchableOpacity
                       key={ci}
                       style={s.dayCell}
+                      // Genuinely inert rather than a no-op handler, so it
+                      // stops reading as tappable to touch and to VoiceOver.
+                      disabled={isPast}
                       onPress={() => {
-                        if (!isPast) {
-                          setSelectedDate(cell.date);
-                          if (cell.date.getMonth() !== calendarMonth.getMonth()) {
-                            setCalendarMonth(new Date(cell.date.getFullYear(), cell.date.getMonth(), 1));
-                          }
+                        setSelectedDate(cell.date);
+                        if (cell.date.getMonth() !== calendarMonth.getMonth()) {
+                          setCalendarMonth(new Date(cell.date.getFullYear(), cell.date.getMonth(), 1));
                         }
                       }}
-                      activeOpacity={isPast ? 1 : 0.6}
+                      activeOpacity={0.6}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: isPast, selected }}
                     >
                       <View style={[
                         s.dayCellInner,
@@ -747,6 +812,32 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Sets the end from the start, which is how people actually think
+              about it — "about two hours", not a specific clock time. */}
+          <View style={s.durationRow}>
+            {[1, 2, 3].map((h) => (
+              <SelectableChip
+                key={h}
+                style={s.durationChip}
+                onPress={() => applyDuration(h)}
+                disabled={!hour.trim()}
+                accessibilityLabel={`Set end time to ${h} hour${h > 1 ? 's' : ''} after the start`}
+              >
+                <Text style={[s.durationChipText, !hour.trim() && s.durationChipTextOff]}>
+                  {h}h
+                </Text>
+              </SelectableChip>
+            ))}
+          </View>
+
+          {/* The four controls above never restate what they add up to. */}
+          {whenSummary && (
+            <View style={s.whenSummary}>
+              <Ionicons name="calendar-outline" size={14} color={colors.accent} />
+              <Text style={s.whenSummaryText}>{whenSummary}</Text>
+            </View>
+          )}
         </View>
 
         <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderLight, marginBottom: spacing.lg }} />
@@ -820,6 +911,8 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
             existingImages={coverImage}
             aspectRatio={[16, 9]}
             allowsEditing={true}
+            // The section is one cover image; the default plural contradicted it.
+            addLabel="Add a cover image"
           />
         </View>
 

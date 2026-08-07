@@ -22,6 +22,8 @@ interface ImagePickerProps {
   aspectRatio?: [number, number];
   allowsEditing?: boolean;
   addButtonHeight?: number;
+  /** Overrides the button label — a single-image field shouldn't say "photos". */
+  addLabel?: string;
 }
 
 export default function ImagePicker({
@@ -31,6 +33,7 @@ export default function ImagePicker({
   aspectRatio = [4, 3],
   allowsEditing = true,
   addButtonHeight = 120,
+  addLabel,
 }: ImagePickerProps) {
   const { colors } = useTheme();
   const { showAlert, showToast } = useAlert();
@@ -226,7 +229,9 @@ export default function ImagePicker({
               <Text
                 style={[styles.addButtonText, images.length > 0 && styles.addButtonTextTall]}
               >
-                {images.length === 0 ? 'Add photos' : `Add more (${images.length}/${maxImages})`}
+                {images.length === 0
+                  ? addLabel ?? 'Add photos'
+                  : `Add more (${images.length}/${maxImages})`}
               </Text>
             </>
           )}
