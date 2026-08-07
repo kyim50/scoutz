@@ -17,6 +17,7 @@
     ],
     "ios": {
       "supportsTablet": true,
+      "associatedDomains": ["applinks:joincite.com"],
       "bundleIdentifier": "com.kimani.cite",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs your location to show nearby places and events.",
@@ -26,6 +27,14 @@
       }
     },
     "android": {
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "joincite.com" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#171b1e"

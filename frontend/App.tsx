@@ -25,7 +25,7 @@ import SplashScreen from './src/screens/SplashScreen';
 ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
 
 const linking: LinkingOptions<any> = {
-  prefixes: ['cite://', 'https://traverseapp.com'],
+  prefixes: ['cite://', 'https://joincite.com'],
   config: {
     screens: {
       Main: {

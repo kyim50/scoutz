@@ -4257,7 +4257,7 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const handleSharePin = async () => {
     if (!selectedPin) return;
     const typeLabel = (selectedPin.type || 'pin').replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-    const deepLink = `https://traverseapp.com?targetPinId=${selectedPin.id}`;
+    const deepLink = `https://joincite.com?targetPinId=${selectedPin.id}`;
     const message = [
       `📍 ${selectedPin.title}`,
       typeLabel,

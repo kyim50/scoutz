@@ -37,7 +37,7 @@ describe('parseAuthRedirect', () => {
   });
 
   it('works with an https redirect, not just the app scheme', () => {
-    const url = `https://traverseapp.com/auth/callback#access_token=${ACCESS}&refresh_token=${REFRESH}&type=recovery`;
+    const url = `https://joincite.com/auth/callback#access_token=${ACCESS}&refresh_token=${REFRESH}&type=recovery`;
 
     expect(parseAuthRedirect(url)?.refreshToken).toBe(REFRESH);
   });
