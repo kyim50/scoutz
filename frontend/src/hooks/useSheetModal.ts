@@ -24,6 +24,13 @@ interface Options {
 const FALLBACK_HEIGHT = Dimensions.get('window').height;
 
 /**
+ * How long the sheet waits for the keyboard before entering on its own.
+ * Long enough for keyboardWillShow after a focus, short enough that a step
+ * with no input does not look stalled.
+ */
+const KEYBOARD_WAIT_MS = 120;
+
+/**
  * Enter/exit and keyboard motion for a bottom sheet presented in a Modal.
  *
  * The sheet is positioned at bottom: 0 and moved entirely by one composed
@@ -50,6 +57,9 @@ export function useSheetModal({ visible, onClose }: Options) {
   const heightRef = useRef(FALLBACK_HEIGHT);
   /** While closing, the hook owns the keyboard value and system events are ignored. */
   const closingRef = useRef(false);
+  /** True between opening and the sheet actually starting to slide in. */
+  const pendingEntryRef = useRef(false);
+  const entryFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const afterCloseRef = useRef<(() => void) | null>(null);
 
   /** Measures the sheet so entry and exit travel exactly its own height. */
@@ -61,25 +71,50 @@ export function useSheetModal({ visible, onClose }: Options) {
     []
   );
 
-  const animateIn = useCallback(() => {
-    closingRef.current = false;
-    offset.setValue(heightRef.current);
-    backdrop.setValue(0);
-    Animated.parallel([
-      Animated.timing(backdrop, {
-        toValue: 1,
-        duration: SHEET_IN_MS,
-        easing: SHEET_EASING,
-        useNativeDriver: true,
-      }),
+  /**
+   * Slide the sheet in. Duration and easing are parameters so the entry can
+   * borrow the keyboard's, which is what makes the two read as one movement.
+   */
+  const slideIn = useCallback(
+    (duration: number, easing: typeof SHEET_EASING) => {
+      if (!pendingEntryRef.current) return;
+      pendingEntryRef.current = false;
       Animated.timing(offset, {
         toValue: 0,
-        duration: SHEET_IN_MS,
-        easing: SHEET_EASING,
+        duration,
+        easing,
         useNativeDriver: true,
-      }),
-    ]).start();
-  }, [backdrop, offset]);
+      }).start();
+    },
+    [offset]
+  );
+
+  const animateIn = useCallback(() => {
+    closingRef.current = false;
+    pendingEntryRef.current = true;
+    offset.setValue(heightRef.current);
+    backdrop.setValue(0);
+
+    // The backdrop is independent — it has nothing to sync with.
+    Animated.timing(backdrop, {
+      toValue: 1,
+      duration: SHEET_IN_MS,
+      easing: SHEET_EASING,
+      useNativeDriver: true,
+    }).start();
+
+    // The sheet waits briefly for the keyboard. When the input is focused on
+    // open, keyboardWillShow lands within a frame or two and the sheet then
+    // animates on the keyboard's exact duration and curve — so the composed
+    // transform resolves to a single eased motion rather than two overlapping
+    // ones finishing at different times.
+    //
+    // Nothing focuses on some steps, and hardware keyboards never show one, so
+    // this falls back rather than leaving the sheet stranded off screen.
+    entryFallbackRef.current = setTimeout(() => {
+      slideIn(SHEET_IN_MS, SHEET_EASING);
+    }, KEYBOARD_WAIT_MS);
+  }, [backdrop, offset, slideIn]);
 
   /**
    * Run queued work once the modal has actually gone. Presenting another native
@@ -98,6 +133,11 @@ export function useSheetModal({ visible, onClose }: Options) {
       // otherwise hand us a touch event to "call" after dismissal.
       afterCloseRef.current = typeof after === 'function' ? after : null;
       closingRef.current = true;
+      pendingEntryRef.current = false;
+      if (entryFallbackRef.current) {
+        clearTimeout(entryFallbackRef.current);
+        entryFallbackRef.current = null;
+      }
 
       // Dismiss the native keyboard, but drive our own value below so both
       // movements finish together instead of the sheet dropping twice.
@@ -142,9 +182,23 @@ export function useSheetModal({ visible, onClose }: Options) {
     const animateKeyboard = (toValue: number, event: KeyboardEvent) => {
       // During close the hook drives this value itself.
       if (closingRef.current) return;
+
+      const duration = event.duration || KEYBOARD_FALLBACK_MS;
+
+      // If the sheet is still waiting to enter, bring it in on exactly this
+      // timeline. Identical duration and easing on both halves of
+      // `offset - keyboard` means the composed value follows one clean curve.
+      if (pendingEntryRef.current && toValue > 0) {
+        if (entryFallbackRef.current) {
+          clearTimeout(entryFallbackRef.current);
+          entryFallbackRef.current = null;
+        }
+        slideIn(duration, KEYBOARD_EASING);
+      }
+
       Animated.timing(keyboard, {
         toValue,
-        duration: event.duration || KEYBOARD_FALLBACK_MS,
+        duration,
         easing: KEYBOARD_EASING,
         useNativeDriver: true,
       }).start();
@@ -161,13 +215,18 @@ export function useSheetModal({ visible, onClose }: Options) {
     };
     // Deliberately not depending on the keyboard value: an earlier version
     // re-subscribed on every change, tearing down listeners mid-animation.
-  }, [visible, keyboard]);
+  }, [visible, keyboard, slideIn]);
 
   // Reset when hidden so the next open starts from off screen rather than
   // wherever the last dismissal left it.
   useEffect(() => {
     if (!visible) {
       closingRef.current = false;
+      pendingEntryRef.current = false;
+      if (entryFallbackRef.current) {
+        clearTimeout(entryFallbackRef.current);
+        entryFallbackRef.current = null;
+      }
       keyboard.setValue(0);
       offset.setValue(heightRef.current);
       backdrop.setValue(0);
