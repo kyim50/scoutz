@@ -62,17 +62,29 @@ export default function ImagePicker({
             android: { elevation: 4 },
           }),
         },
+        // Two shapes. With no photos yet this is a compact row, because a tall
+        // dashed box for an optional field pushes the fields people actually
+        // fill in below the fold. Once there are photos the taller tile makes
+        // sense — it sits in a grid alongside them.
         addButton: {
-          height: addButtonHeight,
+          flexDirection: 'row',
+          gap: spacing.sm,
+          height: 56,
           borderRadius: borderRadius.md,
-          borderWidth: 2,
+          borderWidth: 1.25,
           borderColor: colors.border,
           borderStyle: 'dashed',
           justifyContent: 'center',
           alignItems: 'center',
           backgroundColor: colors.surfaceGray,
         },
-        addButtonText: { ...typography.bodySmall, color: colors.textSecondary, marginTop: spacing.xs },
+        addButtonTall: {
+          flexDirection: 'column',
+          gap: 0,
+          height: addButtonHeight,
+        },
+        addButtonText: { ...typography.bodySmallMedium, color: colors.textSecondary },
+        addButtonTextTall: { marginTop: spacing.xs },
       }),
     [colors, addButtonHeight]
   );
@@ -196,17 +208,25 @@ export default function ImagePicker({
       {/* Add Image Button */}
       {images.length < maxImages && (
         <TouchableOpacity
-          style={styles.addButton}
+          style={[styles.addButton, images.length > 0 && styles.addButtonTall]}
           onPress={showOptions}
           disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel={images.length === 0 ? 'Add photos' : 'Add more photos'}
         >
           {loading ? (
             <ActivityIndicator color={colors.text} />
           ) : (
             <>
-              <Ionicons name="camera-outline" size={32} color={colors.text} />
-              <Text style={styles.addButtonText}>
-                {images.length === 0 ? 'Add Photos' : `Add More (${images.length}/${maxImages})`}
+              <Ionicons
+                name="camera-outline"
+                size={images.length > 0 ? 32 : 20}
+                color={colors.textSecondary}
+              />
+              <Text
+                style={[styles.addButtonText, images.length > 0 && styles.addButtonTextTall]}
+              >
+                {images.length === 0 ? 'Add photos' : `Add more (${images.length}/${maxImages})`}
               </Text>
             </>
           )}

@@ -156,6 +156,7 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
   const [accessibilityLevel, setAccessibilityLevel] = useState('');
   const [safetyLevel, setSafetyLevel] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showMoreDetail, setShowMoreDetail] = useState(false);
 
   /**
    * The chips are real signal — "Busy right now" plus a crowd level says as
@@ -167,6 +168,10 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
     subOption || openNow || crowdLevel || purchaseRequired || accessibilityLevel || safetyLevel
   );
   const canSubmit = Boolean(content.trim()) || hasStructuredSignal;
+
+  /** Shown on the collapsed row so answers aren't hidden without a trace. */
+  const signalCount = [openNow, crowdLevel, purchaseRequired, accessibilityLevel, safetyLevel]
+    .filter(Boolean).length;
 
   const subOptions = TYPE_SUBOPTIONS[type];
   const selectedTypeObj = REPORT_TYPES.find((t) => t.value === type)!;
@@ -405,6 +410,16 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
         submitButtonDisabled: { backgroundColor: colors.surfaceGray },
         submitButtonText: { ...typography.button, color: colors.interactiveText },
         submitButtonTextDisabled: { color: colors.textMuted },
+        discloseRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingVertical: spacing.sm + 2,
+          marginBottom: spacing.sm,
+        },
+        discloseTextWrap: { flex: 1, gap: 2 },
+        discloseTitle: { ...typography.bodySemibold, color: colors.text, fontSize: 15 },
+        discloseSub: { ...typography.caption, color: colors.textMuted },
         submitHint: {
           ...typography.caption,
           color: colors.textMuted,
@@ -541,11 +556,39 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
           </>
         )}
 
-        {/* Signal fields */}
+        {/* Signal fields — collapsed by default.
+            Rendered flat, five groups of chips at identical weight read as a
+            wall of required questions. Most reports are one tap; the rest are
+            for people who want to say more. */}
         {signalFields.length > 0 && (
           <>
             <View style={s.divider} />
 
+            <TouchableOpacity
+              style={s.discloseRow}
+              onPress={() => setShowMoreDetail((v) => !v)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={showMoreDetail ? 'Hide extra detail' : 'Add more detail'}
+              accessibilityState={{ expanded: showMoreDetail }}
+            >
+              <View style={s.discloseTextWrap}>
+                <Text style={s.discloseTitle}>Add more detail</Text>
+                <Text style={s.discloseSub}>
+                  {signalCount > 0
+                    ? `${signalCount} added`
+                    : 'Optional — hours, crowd, access and safety'}
+                </Text>
+              </View>
+              <Ionicons
+                name={showMoreDetail ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+
+            {showMoreDetail && (
+              <>
             {signalFields.includes('open_now') && (
               <View style={s.section}>
                 <Text style={s.label}>Open now</Text>
@@ -624,6 +667,8 @@ export default function CreateReportScreen({ navigation, route }: CreateReportSc
                   })}
                 </View>
               </View>
+            )}
+              </>
             )}
           </>
         )}

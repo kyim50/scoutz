@@ -307,13 +307,16 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
           lineHeight: 22,
           color: colors.text,
           backgroundColor: colors.surfaceGray,
-          borderRadius: borderRadius.sm,
+          borderRadius: borderRadius.md,
+          borderWidth: 1.25,
+          borderColor: colors.borderDark,
           paddingVertical: 0,
           paddingHorizontal: spacing.sm,
           textAlign: 'center',
           textAlignVertical: 'center',
-          minWidth: 50,
-          height: 42,
+          // 44pt minimum, and wide enough that two digits never crowd the edges.
+          minWidth: 62,
+          height: 46,
         },
         timeColon: {
           ...typography.h4,
@@ -322,25 +325,32 @@ export default function CreateEventScreen({ navigation, route }: CreateEventScre
         },
         meridiemRow: {
           flexDirection: 'row',
-          borderRadius: borderRadius.sm,
+          borderRadius: borderRadius.md,
           overflow: 'hidden',
           marginLeft: spacing.xs,
+          borderWidth: 1.25,
+          borderColor: colors.borderDark,
         },
         meridiemButton: {
-          paddingVertical: 10,
+          // Matches the input height so the row reads as one control group
+          // rather than three differently-sized boxes.
+          height: 46,
+          minWidth: 46,
+          alignItems: 'center',
+          justifyContent: 'center',
           paddingHorizontal: spacing.sm,
           backgroundColor: colors.surfaceGray,
         },
         meridiemButtonActive: {
           backgroundColor: colors.interactiveBg,
         },
-        meridiemText: { ...typography.bodySmallMedium, color: colors.textMuted },
+        meridiemText: { ...typography.bodySmallSemibold, color: colors.textMuted },
         meridiemTextActive: { color: colors.interactiveText },
 
         timeRowLabel: {
           ...typography.captionBold,
           color: colors.textSecondary,
-          width: 42,
+          width: 48,
         },
 
         switchRow: {
