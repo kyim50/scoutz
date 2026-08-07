@@ -52,11 +52,10 @@ const { width, height } = Dimensions.get('window');
 const SHEET_PEEK_BASE = 190;
 const SHEET_PEEK_DETAIL = 162;
 /**
- * The POI sheet's peek height assumes a one-line title. `detailTitle2` is
- * capped at two lines, so a long name can only ever add this much — but it was
- * enough to push the action row past the snap point and clip the buttons.
+ * Handle padding (8 top, 0 bottom by override) plus the 4pt indicator. Added to
+ * the measured POI content so the snap point covers the whole sheet.
  */
-const POI_TITLE_LINE_HEIGHT = 24;
+const SHEET_HANDLE_HEIGHT = 12;
 const SHEET_HALF = height * 0.78;
 const SHEET_FULL = height * 0.92;
 const SHEET_REPORT_MAX = Math.min(SHEET_HALF, height * 0.60);
@@ -213,8 +212,15 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
   const [verifyChoice, setVerifyChoice] = useState<boolean | null>(null);
   const [averageRating, setAverageRating] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
-  /** Lines the POI title actually wrapped to, reported by onTextLayout. */
-  const [poiTitleLines, setPoiTitleLines] = useState(1);
+  /**
+   * Measured height of the POI sheet's content.
+   *
+   * This started as a constant, then as the constant plus however many lines
+   * the title wrapped to — which promptly broke again on the first POI that
+   * had an address, because that is another optional row the arithmetic did
+   * not know about. The content knows its own height; nothing else has to.
+   */
+  const [poiContentHeight, setPoiContentHeight] = useState<number | null>(null);
   /** The newest review. The fetch already returns the rows; only the rating was kept. */
   const [latestReview, setLatestReview] = useState<any>(null);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
@@ -395,8 +401,12 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     typeof selectedPin?.id === 'string' &&
     selectedPin.id.startsWith('report-');
   const sheetPeek = sheetContent === 'detail' ? SHEET_PEEK_DETAIL : SHEET_PEEK_BASE;
-  // Grows by exactly the lines the title wrapped to beyond the first.
-  const poiPeek = SHEET_PEEK_DETAIL + Math.max(0, poiTitleLines - 1) * POI_TITLE_LINE_HEIGHT;
+  const poiPeek = Math.min(
+    poiContentHeight != null ? poiContentHeight + SHEET_HANDLE_HEIGHT : SHEET_PEEK_DETAIL,
+    // Strictly below the second stop: content this tall is not realistic here,
+    // but two identical snap points would be an invalid array if it ever were.
+    SHEET_HALF - 24
+  );
   modeRef.current = mode;
   const isEventDetailSheet = sheetContent === 'eventDetail';
   const isPoiDetailSheet =
@@ -6109,18 +6119,17 @@ export default function MapScreen({ navigation, route, navBarHeight = 0 }: MapSc
     // POI layout: compact card-style sheet (shorter height, tighter vertical spacing)
     if (isPoiDetail) {
       return (
-        <View style={{ paddingBottom: insets.bottom + spacing.md }}>
+        <View
+          onLayout={(e) => {
+            const h = Math.round(e.nativeEvent.layout.height);
+            setPoiContentHeight((prev) => (prev !== null && Math.abs(prev - h) <= 1 ? prev : h));
+          }}
+          style={{ paddingBottom: insets.bottom + spacing.md }}
+        >
           {/* Header + close */}
           <View style={styles.detailHeader2}>
             <View style={styles.detailHeaderBody}>
-              <Text
-                style={styles.detailTitle2}
-                numberOfLines={2}
-                onTextLayout={(e) => {
-                  const lines = Math.min(e.nativeEvent.lines.length, 2);
-                  setPoiTitleLines((prev) => (prev === lines ? prev : lines));
-                }}
-              >
+              <Text style={styles.detailTitle2} numberOfLines={2}>
                 {detailItem.title}
               </Text>
             </View>
