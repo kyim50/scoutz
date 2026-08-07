@@ -13,8 +13,15 @@ interface Options {
   onClose: () => void;
 }
 
-/** Used until the sheet has been measured; always clears the screen. */
-const FALLBACK_HEIGHT = Dimensions.get('window').height;
+/**
+ * Start offset used before the sheet has been measured, on the very first open.
+ *
+ * Bounded rather than the full screen height: the entry is timed to the
+ * keyboard, so an over-long start distance has to be covered in the same 250ms
+ * and lurches. These sheets are well under this, so it still starts off screen,
+ * and onLayout replaces it with the exact height immediately after.
+ */
+const FALLBACK_HEIGHT = Dimensions.get('window').height * 0.7;
 
 /**
  * Enter/exit and keyboard motion for a bottom sheet presented in a Modal.

@@ -19,11 +19,15 @@ import { Easing } from 'react-native-reanimated';
 export const SHEET_EASING = Easing.bezier(0.32, 0.72, 0, 1);
 
 /**
- * Enter is deliberate; exit is snappier, because the user has already decided.
+ * Matched to the iOS keyboard, which shows and hides in 250ms.
  *
- * Entry covers the sheet's height plus the keyboard's, since both rise at once,
- * so it is pitched slightly longer than a bare slide would need.
+ * This is the important number. The sheet and the keyboard rise together, so if
+ * the sheet runs longer it is still travelling after the keyboard has stopped —
+ * and because the curve is a strong ease-out, that remainder is a slow creep
+ * over the final few pixels. It reads as the keyboard arriving first and the
+ * sheet catching up behind it, which is exactly the two-stage entry this was
+ * meant to remove. Landing together is what makes it one movement.
  */
-export const SHEET_IN_MS = 400;
-export const SHEET_OUT_MS = 240;
+export const SHEET_IN_MS = 250;
+export const SHEET_OUT_MS = 220;
 
