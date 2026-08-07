@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { RowSkeleton } from '../components/Skeleton';
+import { RowSkeleton, SkeletonList } from '../components/Skeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../constants/theme';
@@ -370,7 +370,7 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
 
       {loadingGroups && groups.length === 0 ? (
         <View>
-          {[0, 1, 2, 3].map((i) => <RowSkeleton key={i} />)}
+          <SkeletonList count={4}>{() => <RowSkeleton />}</SkeletonList>
         </View>
       ) : (
         <FlatList
