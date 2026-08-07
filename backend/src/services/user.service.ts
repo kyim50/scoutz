@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
 import logger from '../utils/logger';
+import { withCoordinates } from '../utils/geo';
 
 export interface UpdateUserData {
   name?: string;
@@ -140,7 +141,9 @@ export class UserService {
         return [];
       }
 
-      return data || [];
+      // select('*') returns the PostGIS column as hex EWKB, which no caller can
+      // read. Flatten it to lat/lng here so every consumer gets coordinates.
+      return (data || []).map(withCoordinates);
     } catch (error) {
       logger.error('Error in getUserPins:', error);
       return [];
@@ -163,7 +166,9 @@ export class UserService {
         return [];
       }
 
-      return data || [];
+      // select('*') returns the PostGIS column as hex EWKB, which no caller can
+      // read. Flatten it to lat/lng here so every consumer gets coordinates.
+      return (data || []).map(withCoordinates);
     } catch (error) {
       logger.error('Error in getUserReports:', error);
       return [];
@@ -183,7 +188,9 @@ export class UserService {
         return [];
       }
 
-      return data || [];
+      // select('*') returns the PostGIS column as hex EWKB, which no caller can
+      // read. Flatten it to lat/lng here so every consumer gets coordinates.
+      return (data || []).map(withCoordinates);
     } catch (error) {
       logger.error('Error in getUserEvents:', error);
       return [];

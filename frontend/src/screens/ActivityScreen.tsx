@@ -248,7 +248,7 @@ export default function ActivityScreen({ navigation }: { navigation: any }) {
   const s = useMemo(
     () =>
       StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.background },
+        container: { flex: 1, backgroundColor: colors.surface },
         content: {
           paddingHorizontal: spacing.md,
           paddingBottom: spacing.xl,
@@ -295,7 +295,7 @@ export default function ActivityScreen({ navigation }: { navigation: any }) {
 
         // ── Hero card ── the most recent thing, given room to be looked at.
         hero: {
-          backgroundColor: colors.card,
+          backgroundColor: colors.surfaceGray,
           borderRadius: borderRadius.xl,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
@@ -361,7 +361,7 @@ export default function ActivityScreen({ navigation }: { navigation: any }) {
           flexDirection: 'row',
           alignItems: 'center',
           gap: spacing.sm + 4,
-          backgroundColor: colors.card,
+          backgroundColor: colors.surfaceGray,
           borderRadius: borderRadius.lg,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
@@ -522,7 +522,7 @@ export default function ActivityScreen({ navigation }: { navigation: any }) {
       {!loading && hero && (
         <View style={s.hero}>
           {hero.lat != null && hero.lng != null && (
-            <LocationThumbnail lat={hero.lat} lng={hero.lng} label={hero.title} height={132} />
+            <LocationThumbnail lat={hero.lat} lng={hero.lng} height={158} showLabel={false} />
           )}
           <View style={s.heroBody}>
             <Text style={s.heroTitle} numberOfLines={2}>

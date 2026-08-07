@@ -11,6 +11,8 @@ interface LocationThumbnailProps {
   /** Shown beside the map — a street name or place name if known. */
   label?: string;
   height?: number;
+  /** The caption strip under the map. Off where the surrounding card repeats it. */
+  showLabel?: boolean;
 }
 
 /**
@@ -30,6 +32,7 @@ export default function LocationThumbnail({
   lng,
   label,
   height = 96,
+  showLabel = true,
 }: LocationThumbnailProps) {
   const { colors, isDarkMode } = useTheme();
   const [failed, setFailed] = useState(false);
@@ -105,12 +108,14 @@ export default function LocationThumbnail({
         </View>
       )}
 
-      <View style={s.labelRow}>
-        <Ionicons name="pin-outline" size={13} color={colors.accent} />
-        <Text style={s.labelText} numberOfLines={1}>
-          {label || 'Your pin will land here'}
-        </Text>
-      </View>
+      {showLabel && (
+        <View style={s.labelRow}>
+          <Ionicons name="pin-outline" size={13} color={colors.accent} />
+          <Text style={s.labelText} numberOfLines={1}>
+            {label || 'Your pin will land here'}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
