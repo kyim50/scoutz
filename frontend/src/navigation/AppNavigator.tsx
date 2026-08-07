@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Animated, Easing, Dimensions } from 'react-native';
+import { View, Animated, TouchableOpacity, Easing, Dimensions } from 'react-native';
 import { SkeletonBox } from '../components/Skeleton';
 import { createStackNavigator, CardStyleInterpolators, TransitionSpecs } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useIsFocused } from '@react-navigation/native';
 import type { StackCardInterpolationProps } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -28,7 +29,6 @@ import UserReportsScreen from '../screens/UserReportsScreen';
 import SavedItemsScreen from '../screens/SavedItemsScreen';
 import CreateReviewScreen from '../screens/CreateReviewScreen';
 import ActivityScreen from '../screens/ActivityScreen';
-import FloatingTabBar, { tabBarClearance } from '../components/FloatingTabBar';
 import ItemReviewsScreen from '../screens/ItemReviewsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import TermsOfServiceScreen from '../screens/TermsOfServiceScreen';
@@ -38,6 +38,8 @@ import GroupDetailScreen from '../screens/GroupDetailScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
+
+const TAB_BAR_BASE_HEIGHT = 52;
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -117,13 +119,82 @@ const SlideTabScreen = ({ children, index }: { children: React.ReactNode; index:
   );
 };
 
+// ── Tab button with press bounce ─────────────────────────────────────────────
+const AnimatedTabButton = ({ children, onPress, onLongPress, style }: any) => {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () =>
+    Animated.spring(scale, {
+      toValue: 0.75,
+      useNativeDriver: true,
+      speed: 80,
+      bounciness: 2,
+    }).start();
+
+  const handlePressOut = () =>
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 16,
+      bounciness: 14,
+    }).start();
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onLongPress={onLongPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={1}
+      style={style}
+    >
+      <Animated.View style={{ transform: [{ scale }] }}>{children}</Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+// ── Animated tab icon — scales up on focus ────────────────────────────────────
+const TabIcon = ({ name, focused, color }: { name: any; focused: boolean; color: string }) => {
+  const scale = useRef(new Animated.Value(focused ? 1.2 : 1)).current;
+  const pillWidth = useRef(new Animated.Value(focused ? 16 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: focused ? 1.2 : 1,
+      useNativeDriver: true,
+      speed: 18,
+      bounciness: 10,
+    }).start();
+    Animated.spring(pillWidth, {
+      toValue: focused ? 20 : 0,
+      useNativeDriver: false,
+      speed: 18,
+      bounciness: 8,
+    }).start();
+  }, [focused]);
+
+  return (
+    <View style={{ alignItems: 'center', gap: 5 }}>
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Ionicons name={name} size={24} color={color} />
+      </Animated.View>
+      <Animated.View style={{
+        width: pillWidth,
+        height: 2,
+        borderRadius: 1,
+        backgroundColor: color,
+      }} />
+    </View>
+  );
+};
+
 // ── Tab screens ───────────────────────────────────────────────────────────────
 const MapTabScreen = (props: any) => {
   const insets = useSafeAreaInsets();
-  // The bar floats over the map now, so this is clearance rather than layout.
+  const tabBarHeight = TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 8);
   return (
     <SlideTabScreen index={0}>
-      <MapScreen {...props} navBarHeight={tabBarClearance(insets.bottom)} />
+      <MapScreen {...props} navBarHeight={tabBarHeight} />
     </SlideTabScreen>
   );
 };
@@ -142,12 +213,34 @@ const ProfileTabScreen = (props: any) => (
 
 // ── Main tab navigator ────────────────────────────────────────────────────────
 const MainTabs = () => {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
-      // The bar draws itself and positions itself absolutely, so the navigator
-      // reserves no space for it and every tab runs full-bleed underneath.
-      tabBar={(props) => <FloatingTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          height: TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 8),
+          paddingBottom: Math.max(insets.bottom, 8),
+          paddingTop: 8,
+          backgroundColor: colors.surface,
+          borderTopWidth: 0,
+        },
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.mediumGray,
+        tabBarButton: (props) => <AnimatedTabButton {...props} />,
+        tabBarIcon: ({ focused, color }) => {
+          const icons: Record<string, [string, string]> = {
+            Map: ['map', 'map-outline'],
+            Activity: ['reader', 'reader-outline'],
+            Profile: ['person', 'person-outline'],
+          };
+          const [on, off] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
+          return <TabIcon name={focused ? on : off} focused={focused} color={color} />;
+        },
+      })}
     >
       <Tab.Screen name="Map" component={MapTabScreen} />
       <Tab.Screen name="Activity" component={ActivityTabScreen} />

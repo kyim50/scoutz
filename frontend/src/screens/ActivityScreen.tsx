@@ -17,7 +17,6 @@ import { useAlert } from '../context/AlertContext';
 import { userAPI } from '../services/api';
 import LocationThumbnail from '../components/LocationThumbnail';
 import { AvatarRowSkeleton } from '../components/Skeleton';
-import { tabBarClearance } from '../components/FloatingTabBar';
 
 type ActivityKind = 'pin' | 'report' | 'event' | 'rsvp';
 
@@ -252,7 +251,7 @@ export default function ActivityScreen({ navigation }: { navigation: any }) {
         container: { flex: 1, backgroundColor: colors.background },
         content: {
           paddingHorizontal: spacing.md,
-          paddingBottom: tabBarClearance(insets.bottom) + spacing.lg,
+          paddingBottom: spacing.xl,
         },
 
         title: {

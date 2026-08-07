@@ -17,7 +17,6 @@ import { useTheme } from '../context/ThemeContext';
 import { useAlert } from '../context/AlertContext';
 import { useGroup } from '../context/GroupContext';
 import { userAPI } from '../services/api';
-import { tabBarClearance } from '../components/FloatingTabBar';
 
 // ─── Level system ─────────────────────────────────────────────────────────────
 function getLevel(totalContribs: number) {
@@ -406,7 +405,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       <ScrollView
         style={s.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) + spacing.md }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + spacing.md }}
       >
         <View style={[s.header, { paddingTop: insets.top + spacing.sm }]}>
           <TouchableOpacity
