@@ -92,6 +92,24 @@ export class AuthService {
     const email = data.email.trim().toLowerCase();
     const username = normalizeUsername(data.username);
 
+    // Check the email first. Someone re-registering their own pre-migration
+    // account would otherwise be told their username was taken — by their own
+    // account — which reads as a name collision rather than "you already have
+    // an account", and sends them off inventing new usernames.
+    const { data: existingByEmail } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (existingByEmail) {
+      throw new AppError(
+        'EMAIL_EXISTS',
+        'You already have an account with this email. Use "Forgot your password?" to get back in.',
+        409
+      );
+    }
+
     if (username && !(await this.isUsernameAvailable(username))) {
       throw new AppError('USERNAME_TAKEN', 'Username is already taken', 409);
     }
@@ -193,6 +211,12 @@ export class AuthService {
     const normalized = email.trim().toLowerCase();
     const redirectTo = process.env.PASSWORD_RESET_REDIRECT_URL || undefined;
 
+    // Accounts that predate the Supabase Auth migration exist only in
+    // `public.users`. resetPasswordForEmail is a no-op for them, which left
+    // them unable to sign up (email taken), log in (no identity) or reset —
+    // no way back into the app at all. Provision the identity first.
+    await this.ensureAuthIdentityForLegacyUser(normalized);
+
     const { error } = await supabaseAuthClient.auth.resetPasswordForEmail(normalized, {
       redirectTo,
     });
@@ -201,6 +225,86 @@ export class AuthService {
       // Logged, not thrown: the response must look identical whether or not
       // the address is registered.
       logger.warn('Password reset request failed', { email: normalized, reason: error.message });
+    }
+  }
+
+  /**
+   * Give a pre-migration user a Supabase Auth identity so the reset flow can
+   * reach them, and link it to their existing row so they keep their pins,
+   * events and reputation.
+   *
+   * Creates no password: the reset email they are about to receive is what sets
+   * it. Never throws — a failure here must not reveal whether the account
+   * exists.
+   */
+  private async ensureAuthIdentityForLegacyUser(email: string): Promise<void> {
+    try {
+      const { data: appUser } = await supabaseAdmin
+        .from('users')
+        .select('id, email, username, supabase_auth_id')
+        .eq('email', email)
+        .maybeSingle();
+
+      // No local account, or already migrated — nothing to do.
+      if (!appUser || appUser.supabase_auth_id) return;
+
+      // An auth identity may already exist unlinked (a partially completed
+      // migration); adopt it rather than colliding on the unique email.
+      const existingAuthId = await this.findAuthUserIdByEmail(email);
+
+      let authId = existingAuthId;
+      if (!authId) {
+        const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          // Their address is already proven by the pre-migration account, and
+          // requiring confirmation would add a second email to an already
+          // awkward recovery.
+          email_confirm: true,
+          user_metadata: {
+            name: (appUser as any).name ?? undefined,
+            username: appUser.username ?? undefined,
+          },
+        });
+
+        if (error || !created?.user) {
+          logger.error('Could not provision auth identity for legacy user', {
+            email,
+            reason: error?.message,
+          });
+          return;
+        }
+        authId = created.user.id;
+      }
+
+      const { error: linkError } = await supabaseAdmin
+        .from('users')
+        .update({ supabase_auth_id: authId })
+        .eq('id', appUser.id);
+
+      if (linkError) {
+        logger.error('Could not link auth identity to legacy user', {
+          email,
+          reason: linkError.message,
+        });
+        return;
+      }
+
+      logger.info('Provisioned auth identity for legacy user', { userId: appUser.id });
+    } catch (err) {
+      logger.error('ensureAuthIdentityForLegacyUser failed', { email, err });
+    }
+  }
+
+  /** Look up a Supabase Auth user id by email, or null. */
+  private async findAuthUserIdByEmail(email: string): Promise<string | null> {
+    try {
+      const { data } = await supabaseAdmin.auth.admin.listUsers();
+      const match = data?.users?.find(
+        (u: { email?: string }) => (u.email ?? '').toLowerCase() === email
+      );
+      return match?.id ?? null;
+    } catch {
+      return null;
     }
   }
 

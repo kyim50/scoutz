@@ -152,7 +152,11 @@ describe('signup', () => {
   });
 
   it('rejects a username that is already taken', async () => {
-    mockFrom.mockReturnValue(queryResult({ data: { id: 'someone-else' } }));
+    // signup checks email first, then username — the mock has to distinguish
+    // them or this passes for the wrong reason.
+    mockFrom
+      .mockReturnValueOnce(queryResult({ data: null })) // email is free
+      .mockReturnValueOnce(queryResult({ data: { id: 'someone-else' } })); // username is not
 
     await expect(
       authService.signup({
@@ -162,6 +166,23 @@ describe('signup', () => {
         username: 'ada',
       })
     ).rejects.toMatchObject({ code: 'USERNAME_TAKEN', statusCode: 409 });
+
+    expect(mockSignUp).not.toHaveBeenCalled();
+  });
+
+  it('points a returning pre-migration user at password reset', async () => {
+    // Their email already exists, so telling them the *username* is taken sends
+    // them off inventing new names instead of recovering their account.
+    mockFrom.mockReturnValueOnce(queryResult({ data: { id: 'legacy-1' } }));
+
+    await expect(
+      authService.signup({
+        email: 'kyim@example.com',
+        password: 'longenough',
+        name: 'Kimani',
+        username: 'kyim50',
+      })
+    ).rejects.toMatchObject({ code: 'EMAIL_EXISTS', statusCode: 409 });
 
     expect(mockSignUp).not.toHaveBeenCalled();
   });
