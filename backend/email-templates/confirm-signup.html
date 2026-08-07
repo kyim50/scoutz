@@ -1,0 +1,103 @@
+<!--
+  Supabase → Authentication → Email Templates → "Confirm signup"
+  Paste the contents of this file into the Message body field.
+
+  Why it looks like this rather than like the app:
+
+  Email clients are not browsers. Gmail strips <style> blocks in some contexts,
+  Outlook renders through Word's HTML engine, and neither supports flexbox or
+  grid. So: tables for layout, every rule inline, and a 600px cap.
+
+  It is deliberately light rather than matching the app's dark theme. Gmail and
+  Outlook on mobile force-invert dark emails unpredictably, which turns a
+  considered dark design into a muddy one. A light email with the brand accent
+  reads as intentional everywhere.
+
+  Available variables:
+    {{ .ConfirmationURL }}  the action link
+    {{ .Token }}            6-digit code, if you prefer codes to links
+    {{ .Email }}            recipient address
+    {{ .SiteURL }}          project Site URL
+    {{ .Data.name }}        user_metadata — set at signup by auth.service.ts
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f5;margin:0;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:14px;border:1px solid #e2e8e5;overflow:hidden;">
+
+        <!-- Accent rule: the only brand colour above the fold, so it reads as a
+             signature rather than decoration. -->
+        <tr>
+          <td style="height:4px;background-color:#28b873;font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
+
+        <tr>
+          <td style="padding:40px 40px 8px 40px;">
+            <p style="margin:0 0 6px 0;font-size:12px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:#6e7b76;">
+              Traverse
+            </p>
+            <h1 style="margin:0;font-size:26px;line-height:32px;font-weight:700;letter-spacing:-0.5px;color:#101613;">
+              Confirm your email
+            </h1>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:16px 40px 0 40px;">
+            <p style="margin:0;font-size:15px;line-height:23px;color:#3d4945;">
+              Hi {{ .Data.name }} — tap the button below to activate your account.
+              You&rsquo;ll be signed in automatically.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Bulletproof button: a padded table cell, because <button> and most
+             CSS button styling do not survive Outlook. -->
+        <tr>
+          <td style="padding:28px 40px 8px 40px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td align="center" style="background-color:#28b873;border-radius:10px;">
+                  <a href="{{ .ConfirmationURL }}"
+                     style="display:inline-block;padding:14px 30px;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;">
+                    Confirm my email
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:20px 40px 0 40px;">
+            <p style="margin:0;font-size:13px;line-height:20px;color:#6e7b76;">
+              If the button doesn&rsquo;t work, paste this into your browser:
+            </p>
+            <!-- word-break matters: long URLs otherwise stretch the table and
+                 break the layout on narrow screens. -->
+            <p style="margin:6px 0 0 0;font-size:12px;line-height:18px;color:#157a47;word-break:break-all;">
+              {{ .ConfirmationURL }}
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:28px 40px 0 40px;">
+            <div style="height:1px;background-color:#e2e8e5;font-size:0;line-height:0;">&nbsp;</div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:20px 40px 36px 40px;">
+            <p style="margin:0;font-size:12px;line-height:18px;color:#8a948f;">
+              You received this because someone signed up for Traverse with this
+              address. If that wasn&rsquo;t you, ignore this email — no account
+              will be created without confirmation.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
