@@ -47,6 +47,7 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   const {
     backdropOpacity,
     sheetTranslateY,
+    onSheetLayout,
     animateIn,
     close: animateAndClose,
     runAfterClose,
@@ -56,7 +57,6 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   const nameInputRef = useRef<TextInput>(null);
   const usernameInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
-  const focusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const inputRefs = [emailInputRef, nameInputRef, usernameInputRef, passwordInputRef];
 
@@ -68,9 +68,6 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
       setEmail('');
       setPassword('');
       setShowPassword(false);
-    } else {
-      if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
-      focusTimeoutRef.current = null;
     }
   }, [visible]);
 
@@ -341,10 +338,10 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
 
   const handleShow = () => {
     animateIn();
-    focusTimeoutRef.current = setTimeout(() => {
-      emailInputRef.current?.focus();
-      focusTimeoutRef.current = null;
-    }, 380);
+    // Focused immediately, not after the entry finishes: the keyboard then
+    // rises alongside the sheet as one motion. Delaying it made the sheet
+    // settle first and then jump again when the keyboard arrived.
+    emailInputRef.current?.focus();
   };
 
   return (
@@ -380,7 +377,10 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
             { transform: [{ translateY: sheetTranslateY }] },
           ]}
         >
-          <View style={[styles.sheet, { paddingTop: 18, paddingBottom: insets.bottom + 10 }]}>
+          <View
+            onLayout={onSheetLayout}
+            style={[styles.sheet, { paddingTop: 18, paddingBottom: insets.bottom + 10 }]}
+          >
             <View style={styles.topRow}>
               <TouchableOpacity style={styles.backButton} onPress={handleBack}>
                 <Ionicons name="chevron-back" size={22} color={colors.text} />

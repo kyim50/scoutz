@@ -42,6 +42,7 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
   const {
     backdropOpacity,
     sheetTranslateY,
+    onSheetLayout,
     animateIn,
     close: animateAndClose,
     runAfterClose,
@@ -49,7 +50,6 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
 
   const identifierInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
-  const focusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
 
@@ -59,9 +59,6 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
       setIdentifier('');
       setPassword('');
       setShowPassword(false);
-    } else {
-      if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
-      focusTimeoutRef.current = null;
     }
   }, [visible]);
 
@@ -250,10 +247,10 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
 
   const handleShow = () => {
     animateIn();
-    focusTimeoutRef.current = setTimeout(() => {
-      identifierInputRef.current?.focus();
-      focusTimeoutRef.current = null;
-    }, 380);
+    // Focused immediately, not after the entry finishes: the keyboard then
+    // rises alongside the sheet as one motion. Delaying it made the sheet
+    // settle first and then jump again when the keyboard arrived.
+    identifierInputRef.current?.focus();
   };
 
   return (
@@ -286,7 +283,10 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
             { transform: [{ translateY: sheetTranslateY }] },
           ]}
         >
-          <View style={[styles.sheet, { paddingTop: 18, paddingBottom: insets.bottom + 10 }]}>
+          <View
+            onLayout={onSheetLayout}
+            style={[styles.sheet, { paddingTop: 18, paddingBottom: insets.bottom + 10 }]}
+          >
             <View style={styles.topRow}>
               <TouchableOpacity style={styles.backButton} onPress={handleBack}>
                 <Ionicons name="chevron-back" size={22} color={colors.text} />

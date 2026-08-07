@@ -1,10 +1,16 @@
 import { useRef, useEffect, useCallback } from 'react';
-import { Animated, Keyboard, Platform, KeyboardEvent } from 'react-native';
+import {
+  Animated,
+  Keyboard,
+  Platform,
+  KeyboardEvent,
+  LayoutChangeEvent,
+  Dimensions,
+} from 'react-native';
 import {
   SHEET_EASING,
   SHEET_IN_MS,
   SHEET_OUT_MS,
-  SHEET_TRAVEL,
   KEYBOARD_EASING,
   KEYBOARD_FALLBACK_MS,
 } from '../lib/motion';
@@ -14,34 +20,51 @@ interface Options {
   onClose: () => void;
 }
 
+/** Used until the sheet has been measured; always clears the screen. */
+const FALLBACK_HEIGHT = Dimensions.get('window').height;
+
 /**
  * Enter/exit and keyboard motion for a bottom sheet presented in a Modal.
  *
- * Shared by the auth sheets so they move identically. Three things it fixes:
+ * The sheet is positioned at bottom: 0 and moved entirely by one composed
+ * transform: `translateY = offset - keyboardHeight`. Both movements therefore
+ * share a single value and can never fight each other.
  *
- * 1. Enter used a spring and exit a timing, so the sheet had two different
- *    personalities. Both now use the same ease-out curve, exit slightly faster.
+ * Two behaviours matter more than they look:
  *
- * 2. The keyboard offset was React state written to `bottom` and `height` —
- *    layout properties, applied instantly. The sheet jumped rather than moved.
- *    It is now an Animated.Value composed into the sheet's transform, driven
- *    with the duration iOS reports on the keyboard event so the two travel
- *    together.
+ * Exit travels the sheet's full measured height, not a fixed 80px. Sliding a
+ * short distance and cutting the backdrop leaves the sheet visibly on screen
+ * as everything disappears, which reads as a flash. Travelling its own height
+ * means it is genuinely gone before the backdrop finishes.
  *
- * 3. Everything is a transform, so the whole thing runs on the native driver
- *    and stays smooth while JS is busy.
+ * During exit the keyboard is driven to zero on the same timeline as the sheet.
+ * Letting the system animate it on its own schedule made the sheet drop in two
+ * stages — once from the keyboard retracting, once from the sheet leaving.
  */
 export function useSheetModal({ visible, onClose }: Options) {
   const backdrop = useRef(new Animated.Value(0)).current;
-  const sheet = useRef(new Animated.Value(SHEET_TRAVEL)).current;
+  /** Downward offset in px. 0 is fully presented. */
+  const offset = useRef(new Animated.Value(FALLBACK_HEIGHT)).current;
   const keyboard = useRef(new Animated.Value(0)).current;
 
-  /** Queued until the native modal is fully gone — see runAfterClose. */
+  const heightRef = useRef(FALLBACK_HEIGHT);
+  /** While closing, the hook owns the keyboard value and system events are ignored. */
+  const closingRef = useRef(false);
   const afterCloseRef = useRef<(() => void) | null>(null);
 
+  /** Measures the sheet so entry and exit travel exactly its own height. */
+  const onSheetLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const h = e.nativeEvent.layout.height;
+      if (h > 0) heightRef.current = h;
+    },
+    []
+  );
+
   const animateIn = useCallback(() => {
+    closingRef.current = false;
+    offset.setValue(heightRef.current);
     backdrop.setValue(0);
-    sheet.setValue(SHEET_TRAVEL);
     Animated.parallel([
       Animated.timing(backdrop, {
         toValue: 1,
@@ -49,21 +72,19 @@ export function useSheetModal({ visible, onClose }: Options) {
         easing: SHEET_EASING,
         useNativeDriver: true,
       }),
-      Animated.timing(sheet, {
+      Animated.timing(offset, {
         toValue: 0,
         duration: SHEET_IN_MS,
         easing: SHEET_EASING,
         useNativeDriver: true,
       }),
     ]).start();
-  }, [backdrop, sheet]);
+  }, [backdrop, offset]);
 
   /**
-   * Run queued work once the modal has actually gone.
-   *
-   * Presenting another native modal while this one is dismissing leaves an
-   * invisible modal on screen swallowing touches, which looks like the app
-   * has frozen.
+   * Run queued work once the modal has actually gone. Presenting another native
+   * modal while this one is dismissing leaves an invisible modal on screen
+   * swallowing touches, which looks like the app has frozen.
    */
   const runAfterClose = useCallback(() => {
     const fn = afterCloseRef.current;
@@ -73,10 +94,15 @@ export function useSheetModal({ visible, onClose }: Options) {
 
   const close = useCallback(
     (after?: () => void) => {
-      // Guarded because this is also used directly as an onPress handler, which
-      // would otherwise hand us a touch event to "call" after dismissal.
+      // Guarded because this doubles as an onPress handler, which would
+      // otherwise hand us a touch event to "call" after dismissal.
       afterCloseRef.current = typeof after === 'function' ? after : null;
+      closingRef.current = true;
+
+      // Dismiss the native keyboard, but drive our own value below so both
+      // movements finish together instead of the sheet dropping twice.
       Keyboard.dismiss();
+
       Animated.parallel([
         Animated.timing(backdrop, {
           toValue: 0,
@@ -84,20 +110,25 @@ export function useSheetModal({ visible, onClose }: Options) {
           easing: SHEET_EASING,
           useNativeDriver: true,
         }),
-        Animated.timing(sheet, {
-          toValue: SHEET_TRAVEL,
+        Animated.timing(offset, {
+          toValue: heightRef.current,
+          duration: SHEET_OUT_MS,
+          easing: SHEET_EASING,
+          useNativeDriver: true,
+        }),
+        Animated.timing(keyboard, {
+          toValue: 0,
           duration: SHEET_OUT_MS,
           easing: SHEET_EASING,
           useNativeDriver: true,
         }),
       ]).start(() => {
         onClose();
-        // iOS reports the real dismissal through Modal.onDismiss; Android has
-        // no equivalent, so this is the moment there.
+        // iOS reports real dismissal through Modal.onDismiss; Android does not.
         if (Platform.OS !== 'ios') runAfterClose();
       });
     },
-    [backdrop, sheet, onClose, runAfterClose]
+    [backdrop, offset, keyboard, onClose, runAfterClose]
   );
 
   useEffect(() => {
@@ -109,9 +140,10 @@ export function useSheetModal({ visible, onClose }: Options) {
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const animateKeyboard = (toValue: number, event: KeyboardEvent) => {
+      // During close the hook drives this value itself.
+      if (closingRef.current) return;
       Animated.timing(keyboard, {
         toValue,
-        // iOS reports its own duration; matching it keeps them in lockstep.
         duration: event.duration || KEYBOARD_FALLBACK_MS,
         easing: KEYBOARD_EASING,
         useNativeDriver: true,
@@ -127,25 +159,27 @@ export function useSheetModal({ visible, onClose }: Options) {
       showSub.remove();
       hideSub.remove();
     };
-    // Deliberately not depending on the offset: the old version re-subscribed
-    // on every keyboard change, tearing down listeners mid-animation.
+    // Deliberately not depending on the keyboard value: an earlier version
+    // re-subscribed on every change, tearing down listeners mid-animation.
   }, [visible, keyboard]);
 
-  // Reset when hidden so the next open starts from the bottom rather than
+  // Reset when hidden so the next open starts from off screen rather than
   // wherever the last dismissal left it.
   useEffect(() => {
     if (!visible) {
+      closingRef.current = false;
       keyboard.setValue(0);
-      sheet.setValue(SHEET_TRAVEL);
+      offset.setValue(heightRef.current);
       backdrop.setValue(0);
     }
-  }, [visible, keyboard, sheet, backdrop]);
+  }, [visible, keyboard, offset, backdrop]);
 
   return {
     backdropOpacity: backdrop,
     /** Entry offset minus keyboard height — one transform for both movements. */
-    sheetTranslateY: Animated.subtract(sheet, keyboard),
+    sheetTranslateY: Animated.subtract(offset, keyboard),
     keyboardHeight: keyboard,
+    onSheetLayout,
     animateIn,
     close,
     runAfterClose,
