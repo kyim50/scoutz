@@ -7,21 +7,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useUsernameAvailability } from '../hooks/useUsernameAvailability';
 import Reanimated from 'react-native-reanimated';
-import { useSheetModal } from '../hooks/useSheetModal';
+import { useSlideUpModal } from '../hooks/useSlideUpModal';
 import { spacing, borderRadius } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { useTheme } from '../context/ThemeContext';
-
-/** Taller than any keyboard, so the sheet never reveals a gap beneath it. */
-const SHEET_TAIL_HEIGHT = 600;
 
 interface SignupModalProps {
   visible: boolean;
@@ -45,13 +41,12 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   const insets = useSafeAreaInsets();
 
   const {
-    sheetStyle,
-    backdropStyle,
-    onSheetLayout,
+    containerStyle,
+    keyboardSpacerStyle,
     animateIn,
     close: animateAndClose,
     runAfterClose,
-  } = useSheetModal({ onClose });
+  } = useSlideUpModal({ onClose });
 
   const emailInputRef = useRef<TextInput>(null);
   const nameInputRef = useRef<TextInput>(null);
@@ -83,16 +78,13 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        sheet: {
+        container: {
+          flex: 1,
           backgroundColor: colors.surface,
-          borderTopLeftRadius: 28,
-          borderTopRightRadius: 28,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderLeftWidth: StyleSheet.hairlineWidth,
-          borderRightWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
+        },
+        sheet: {
+          flex: 1,
           paddingHorizontal: spacing.lg,
-          overflow: 'hidden',
         },
         topRow: {
           flexDirection: 'row',
@@ -347,38 +339,16 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
   return (
     <Modal
       visible={visible}
-      transparent
       animationType="none"
       statusBarTranslucent
       onShow={handleShow}
       onDismiss={runAfterClose}
     >
-      <View style={{ flex: 1 }}>
-        {/* Dim overlay — pointer-events none so touches pass through */}
-        <Reanimated.View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: 'rgba(0,0,0,0.6)' },
-            backdropStyle,
-          ]}
-        />
-
-        {/* Flexible dismiss area above the sheet */}
-        <Pressable style={{ flex: 1 }} onPress={() => animateAndClose()} />
-
-        {/* Anchored to the bottom and moved entirely by transform: the entry
-            offset and the keyboard height are composed into one translateY, so
-            both run on the native driver instead of re-laying-out the sheet.
-            The tail below fills the area the keyboard vacates, which avoids
-            animating `height` on every keyboard frame. */}
-        <Reanimated.View
-          style={[{ position: 'absolute', left: 0, right: 0, bottom: 0 }, sheetStyle]}
-        >
-          <View
-            onLayout={onSheetLayout}
-            style={[styles.sheet, { paddingTop: 18, paddingBottom: insets.bottom + 10 }]}
-          >
+      {/* Covers the window and stays put when the keyboard appears, so there
+          is nothing to keep in sync and nothing for the keyboard to rise in
+          front of. */}
+      <Reanimated.View style={[styles.container, containerStyle]}>
+        <View style={[styles.sheet, { paddingTop: insets.top + 8 }]}>
             <View style={styles.topRow}>
               <TouchableOpacity style={styles.backButton} onPress={handleBack}>
                 <Ionicons name="chevron-back" size={22} color={colors.text} />
@@ -522,25 +492,12 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
 
-          {/* Covers the space the keyboard vacates, positioned absolutely so it
-              adds nothing to the container's height — as a flow child it made
-              the container taller than the sheet, and with the container
-              anchored to the bottom that pushed the sheet off screen. */}
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              height: SHEET_TAIL_HEIGHT,
-              backgroundColor: colors.surface,
-            }}
-          />
-        </Reanimated.View>
-      </View>
+            {/* Only this reacts to the keyboard: it grows to the keyboard's
+                height and lifts the action button clear of it. */}
+            <Reanimated.View style={keyboardSpacerStyle} />
+        </View>
+      </Reanimated.View>
     </Modal>
   );
 }
