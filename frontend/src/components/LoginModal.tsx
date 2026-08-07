@@ -28,13 +28,14 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ visible, onClose, onSwitchToSignup }: LoginModalProps) {
-  const { showToast } = useAlert();
+  const { showToast, showAlert } = useAlert();
   const [identifier, setIdentifier] = useState('');
+  const [sendingReset, setSendingReset] = useState(false);
   const [password, setPassword] = useState('');
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
+  const { login, forgotPassword } = useAuth();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -170,9 +171,44 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
         },
         footerText: { fontSize: 13, color: colors.textSecondary },
         signupLink: { fontSize: 13, color: colors.text, fontWeight: '700' },
+        forgotButton: {
+          alignSelf: 'center',
+          // Padding rather than height, to keep the 44pt touch target without
+          // visually crowding the primary action above it.
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          marginTop: 4,
+        },
+        forgotText: { fontSize: 13, color: colors.textSecondary },
       }),
     [colors]
   );
+
+  const handleForgotPassword = async () => {
+    const email = identifier.trim();
+    if (!email.includes('@')) {
+      // Reset is keyed on email; a username gives Supabase nothing to send to.
+      showToast('Go back and enter your email address to reset your password', 'error');
+      setStep(0);
+      return;
+    }
+
+    setSendingReset(true);
+    try {
+      await forgotPassword(email);
+      // Queued so the alert doesn't present over a still-dismissing modal.
+      animateAndClose(() =>
+        showAlert(
+          'Check your email',
+          `If an account exists for ${email}, a reset link is on its way. Open it on this device to set a new password.`
+        )
+      );
+    } catch (error: any) {
+      showToast(error?.message ?? 'Could not send the reset email. Try again.', 'error');
+    } finally {
+      setSendingReset(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!identifier.trim() || !password.trim()) {
@@ -324,6 +360,26 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
                   </Text>
                 )}
               </TouchableOpacity>
+
+              {/* Shown on the password step, where someone discovers they've
+                  forgotten it. This is also the only route back in for accounts
+                  that predate the Supabase Auth migration. */}
+              {step === 1 && (
+                <TouchableOpacity
+                  style={styles.forgotButton}
+                  onPress={handleForgotPassword}
+                  disabled={sendingReset}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reset your password by email"
+                >
+                  {sendingReset ? (
+                    <ActivityIndicator size="small" color={colors.textSecondary} />
+                  ) : (
+                    <Text style={styles.forgotText}>Forgot your password?</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Don&apos;t have an account? </Text>
                 <TouchableOpacity onPress={onSwitchToSignup}>
@@ -333,10 +389,20 @@ export default function LoginModal({ visible, onClose, onSwitchToSignup }: Login
             </View>
           </View>
 
-          {/* Rides with the sheet to cover the space the keyboard vacates. */}
+          {/* Covers the space the keyboard vacates, positioned absolutely so it
+              adds nothing to the container's height — as a flow child it made
+              the container taller than the sheet, and with the container
+              anchored to the bottom that pushed the sheet off screen. */}
           <View
             pointerEvents="none"
-            style={{ height: SHEET_TAIL_HEIGHT, backgroundColor: colors.surface }}
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              height: SHEET_TAIL_HEIGHT,
+              backgroundColor: colors.surface,
+            }}
           />
         </Animated.View>
       </View>

@@ -526,11 +526,17 @@ export default function SignupModal({ visible, onClose, onSwitchToLogin }: Signu
             </View>
           </View>
 
-          {/* Rides with the sheet to cover the space the keyboard leaves as it
-              retracts. A fixed height means no layout work per frame. */}
+          {/* Covers the space the keyboard vacates, positioned absolutely so it
+              adds nothing to the container's height — as a flow child it made
+              the container taller than the sheet, and with the container
+              anchored to the bottom that pushed the sheet off screen. */}
           <View
             pointerEvents="none"
             style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
               height: SHEET_TAIL_HEIGHT,
               backgroundColor: colors.surface,
             }}
